@@ -1,0 +1,13 @@
+
+OrdererOrgs:
+  - Name: Orderer
+    Domain: sivatech.com
+    Specs:
+      - Hostname: orderer
+
+PeerOrgs:
+  - Name: tictactoe
+    Domain: tictactoe.sivatech.com
+    EnableNodeOUs: true
+    Template:
+      Count: 2

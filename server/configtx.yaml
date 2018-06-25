@@ -1,0 +1,62 @@
+
+Profiles:
+  OneOrgOrdererGenesis:
+    Capabilities:
+      <<: *ChannelCapabilities
+    Orderer:
+      <<: *SivaTechOrdererDefaults
+      Organizations:
+        - *SivaTechOrdererOrg
+      Capabilities:
+        <<: *SivaTechOrdererCapabilities
+    Consortiums:
+      TicTacToeConsortium:
+        Organizations:
+          - *SivaTech
+  TicTacToeChannel:
+    Consortium: TicTacToeConsortium
+    Application:
+      <<: *TicTacToeApplicationDefaults
+      Organizations:
+        - *SivaTech
+      Capabilities:
+        <<: *TicTacToeApplicationCapabilities
+
+Organizations:
+  - &SivaTechOrdererOrg
+      Name: SivaTechOrdererMSP
+      ID: SivaTechOrdererMSP
+      MSPDir: crypto-config/ordererOrganizations/sivatech.com/msp
+  - &SivaTech
+      Name: TicTacToeMSP
+      ID: TicTacToeMSP
+      MSPDir: crypto-config/peerOrganizations/tictactoe.sivatech.com/msp
+      AnchorPeers:
+        - Host: peer0.tictactoe.sivatech.com
+          Port: 7051
+
+Orderer: &SivaTechOrdererDefaults
+  OrdererType: solo
+  Addresses:
+    - orderer.sivatech.com:7050
+  BatchTimeout: 2s
+  BatchSize:
+    MaxMessageCount: 20
+    AbsoluteMaxBytes: 99 MB
+    PreferredMaxBytes: 512 KB
+  Kafka:
+    Brokers:
+      - 127.0.0.1:9092
+  Organizations:
+
+
+Application: &TicTacToeApplicationDefaults
+  Organizations:
+
+Capabilities:
+  Global: &ChannelCapabilities
+    V1_1: true
+  Orderer: &SivaTechOrdererCapabilities
+    V1_1: true
+  Application: &TicTacToeApplicationCapabilities
+    V1_1: true

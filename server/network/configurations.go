@@ -62,7 +62,7 @@ type CAConfiguration struct {
 	TLSCertClientPaths  TLSKeyPathPair
 	CAName              string
 	RegistrarCredential Credential
-	CryptoConfigPath string
+	CryptoConfigPath    string
 }
 
 type OrdererConfiguration struct {

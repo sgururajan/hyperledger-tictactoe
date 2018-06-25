@@ -15,6 +15,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"io/ioutil"
+	"hyperledger/hyperledger-tictactoe/server/pathUtil"
+	"github.com/hyperledger/fabric-sdk-go/pkg/core/logging/api"
 )
 
 type FabEndpointConfiguration struct {
@@ -24,18 +27,28 @@ type FabEndpointConfiguration struct {
 	channelsConfig   map[string]fab.ChannelEndpointConfig
 	caConfig         map[string]FabCAConfig
 	isSystemCertPool bool
-	networkConfig    fab.NetworkConfig
+	//networkConfig    fab.NetworkConfig
 	tlsCertPool      fab.CertPool
 	clientConfig     FabClientConfig
 	rwLock           sync.Mutex
 }
 
-//type FabCAConfig struct {
-//	URL       string
-//	TLSCACert endpoint.MutualTLSConfig
-//	Registrar msp.EnrollCredentials
-//	CAName    string
-//}
+type FabClientConfig struct {
+	Organization    string
+	Logging         api.LoggingType
+	CryptoConfig    msp.CCType
+	CredentialStore msp.CredentialStoreType
+	TLSCerts        endpoint.MutualTLSConfig
+	TLSKey          []byte
+	TLSCert         []byte
+}
+
+type FabCAConfig struct {
+	URL       string
+	TLSCACert endpoint.MutualTLSConfig
+	Registrar msp.EnrollCredentials
+	CAName    string
+}
 
 type FabOrdererConfiguration struct {
 	URL         string
@@ -48,6 +61,21 @@ type FabPeerConfiguration struct {
 	EventURL    string
 	GRPCOptions map[string]interface{}
 	TLSCACert   *x509.Certificate
+}
+
+func newFabClientConfig(clientConfig ClientConfiguration) *FabClientConfig {
+	return &FabClientConfig{
+		Organization:    strings.ToLower(clientConfig.Organization),
+		Logging:         getFabLoggingType(clientConfig.Logging),
+		CryptoConfig:    msp.CCType{Path: clientConfig.CryptoConfigPath},
+		CredentialStore: msp.CredentialStoreType{Path: clientConfig.CredentialStorePath},
+		TLSCerts: endpoint.MutualTLSConfig{
+			Client: endpoint.TLSKeyPair{
+				Key:  newTLSConfig(clientConfig.TLSKeyPair.KeyPath),
+				Cert: newTLSConfig(clientConfig.TLSKeyPair.CertPath),
+			},
+		},
+	}
 }
 
 func newFabCAConfig(caConfig CAConfiguration) FabCAConfig {
@@ -90,7 +118,7 @@ func NewFabEndpointConfiguration(caConfig map[string]CAConfiguration,
 	peerConfig map[string]PeerConfiguration,
 	orgConfig map[string]OrganizationConfiguration,
 	chConfig map[string]ChannelConfiguration,
-	clientConfig FabClientConfig) *FabEndpointConfiguration {
+	clientConfig ClientConfiguration) *FabEndpointConfiguration {
 
 	result := FabEndpointConfiguration{}
 
@@ -117,7 +145,7 @@ func NewFabEndpointConfiguration(caConfig map[string]CAConfiguration,
 		result.caConfig[k] = newFabCAConfig(v)
 	}
 
-	result.clientConfig = clientConfig
+	result.clientConfig = *newFabClientConfig(clientConfig)
 
 	return &result
 }
@@ -169,6 +197,23 @@ func newFabChannelPeerConfiguration(cpConfig ChannelPeerConfiguration) fab.PeerC
 	}
 }
 
+func getFabLoggingType(level LoggingLevel) api.LoggingType {
+	switch level {
+	case INFO:
+		return api.LoggingType{Level: "INFO"}
+	case WARNING:
+		return api.LoggingType{Level: "WARNING"}
+	case ERROR:
+		return api.LoggingType{Level: "ERROR"}
+	case DEBUG:
+		return api.LoggingType{Level: "DEBUG"}
+	case FATAL:
+		return api.LoggingType{Level: "FATAL"}
+	default:
+		return api.LoggingType{Level: "INFO"}
+	}
+}
+
 var defaultTimeOutTypes = map[fab.TimeoutType]time.Duration{
 	fab.EndorserConnection:       time.Second * 10,
 	fab.PeerResponse:             time.Minute * 3,
@@ -199,6 +244,17 @@ func getGRPCOptions(opts GRPCOptions) map[string]interface{} {
 		"keep-alive-permit":        opts.KeepAlivePermit,
 		"fail-fast":                opts.FailFast,
 		"allow-insecure":           opts.AllowInsecure,
+	}
+}
+
+func (m *FabEndpointConfiguration) Client() *msp.ClientConfig {
+	return &msp.ClientConfig{
+		Organization: strings.ToLower(m.clientConfig.Organization),
+		Logging: m.clientConfig.Logging,
+		CryptoConfig: m.clientConfig.CryptoConfig,
+		CredentialStore:m.clientConfig.CredentialStore,
+		TLSKey: m.clientConfig.TLSCerts.Client.Key.Bytes(),
+		TLSCert: m.clientConfig.TLSCerts.Client.Cert.Bytes(),
 	}
 }
 
@@ -285,13 +341,19 @@ func (m *FabEndpointConfiguration) verifyPeerConfig(p fab.PeerConfig, peerName s
 }
 
 func (m *FabEndpointConfiguration) NetworkConfig() *fab.NetworkConfig {
-	return &m.networkConfig
+	//return &m.networkConfig
+	return &fab.NetworkConfig{
+		Channels: m.channelsConfig,
+		Organizations: m.orgsConfig,
+		Orderers: m.orderersConfig,
+		Peers: m.peersConfig,
+	}
 }
 
 func (m *FabEndpointConfiguration) NetworkPeers() []fab.NetworkPeer {
 	netPeers := []fab.NetworkPeer{}
 
-	for name, p := range m.networkConfig.Peers {
+	for name, p := range m.peersConfig {
 		if err := m.verifyPeerConfig(p, name, endpoint.IsTLSEnabled(p.URL)); err != nil {
 			return nil
 		}
@@ -426,4 +488,111 @@ func (m *FabEndpointConfiguration) loadPrivateKeyFromConfig(clientConfig *FabCli
 	}
 
 	return []tls.Certificate{clientCerts}, nil
+}
+
+
+/* Methods for Identity configuration */
+func (m *FabEndpointConfiguration) CAConfig(orgName string) (*msp.CAConfig, bool) {
+	return m.getCAConfig(orgName)
+}
+
+func (m *FabEndpointConfiguration) CAServerCerts(orgName string) ([][]byte, bool) {
+	caConfig, ok:= m.getCAConfig(orgName)
+	if !ok {
+		return nil, false
+	}
+
+	return caConfig.TLSCAServerCerts, true
+}
+
+func (m *FabEndpointConfiguration) CAClientKey(orgName string) ([]byte, bool) {
+	caConfig, ok:= m.getCAConfig(orgName)
+	if !ok {
+		return nil, false
+	}
+
+	return caConfig.TLSCAClientKey, true
+}
+
+func (m *FabEndpointConfiguration) CAClientCert(orgName string) ([]byte, bool) {
+	caConfig, ok:= m.getCAConfig(orgName)
+	if !ok {
+		return nil, false
+	}
+
+	return caConfig.TLSCAClientCert, true
+}
+
+func (m *FabEndpointConfiguration) CAKeyStorePath() string {
+	return "/tmp/msp"
+}
+
+func (m *FabEndpointConfiguration) CredentialStorePath() string {
+	return "/tmp/state-store"
+}
+
+func (m *FabEndpointConfiguration) getCAConfig(orgName string) (*msp.CAConfig, bool) {
+	if len(m.orgsConfig[strings.ToLower(orgName)].CertificateAuthorities)==0 {
+		return nil, false
+	}
+
+	org:= m.orgsConfig[strings.ToLower(orgName)]
+	certAuthName:= org.CertificateAuthorities[0]
+	if certAuthName=="" {
+		return nil, false
+	}
+
+	caConfig, ok:= m.caConfig[strings.ToLower(certAuthName)]
+	if !ok {
+		return nil, false
+	}
+
+	mspCAConfig, err:= caConfig.getMSPCAConfig()
+	if err != nil {
+		return nil, false
+	}
+
+	return mspCAConfig, true
+}
+
+func (m *FabCAConfig) getMSPCAConfig() (*msp.CAConfig, error) {
+	serverCerts, err:= m.getServerCerts()
+	if err!=nil {
+		return nil, err
+	}
+
+	return &msp.CAConfig{
+		URL: m.URL,
+		Registrar: m.Registrar,
+		CAName: m.CAName,
+		TLSCAClientCert: m.TLSCACert.Client.Cert.Bytes(),
+		TLSCAClientKey: m.TLSCACert.Client.Key.Bytes(),
+		TLSCAServerCerts: serverCerts,
+	}, nil
+}
+
+func (m *FabCAConfig) getServerCerts() ([][]byte, error) {
+	var serverCerts [][]byte
+
+	pems:= m.TLSCACert.Pem
+	if len(pems) > 0 {
+		serverCerts:= make([][]byte, len(pems))
+		for i, pem:= range pems {
+			serverCerts[i]=[]byte(pem)
+		}
+
+		return serverCerts, nil
+	}
+
+	certFiles:= strings.Split(m.TLSCACert.Path, ",")
+	serverCerts = make([][]byte, len(certFiles))
+	for i, certPath:= range certFiles{
+		bytes, err:= ioutil.ReadFile(pathUtil.Substitute(certPath))
+		if err!=nil {
+			return nil, errors.WithMessage(err,"failed to load server certificates")
+		}
+		serverCerts[i]=bytes
+	}
+
+	return serverCerts, nil
 }

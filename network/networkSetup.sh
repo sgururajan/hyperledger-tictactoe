@@ -135,8 +135,8 @@ function networkDown () {
 		docker run -v $PWD:/tmp/first-network -rm hyperledger/fabric-tools:$IMAGETAG rm -Rf /tmp/first-network/ledger-backup
 		clearContainers
 		removeUnwantedImages
-		# rm -rf channel-artifacts/*.block channel-artifacts/*.tx crypto-config
-		# rm -f docker-compose-e2e.yaml
+		 rm -rf channel-artifacts/*.block channel-artifacts/*.tx crypto-config
+		 rm -f docker-compose-e2e.yaml
 	fi
 }
 

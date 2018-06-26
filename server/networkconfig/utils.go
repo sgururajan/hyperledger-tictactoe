@@ -1,4 +1,4 @@
-package network
+package networkconfig
 
 import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/core/config/endpoint"

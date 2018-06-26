@@ -20,9 +20,9 @@ services:
     working_dir: /opt/gopath/github.com/hyperledger/fabric
     command: orderer
     volumes:
-      - ../channel-artifacts/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
-      - ../crypto-config/ordererOrganizations/sivatech.com/orderers/orderer.sivatech.com/msp:/var/hyperledger/orderer/msp
-      - ../crypto-config/ordererOrganizations/sivatech.com/orderers/orderer.sivatech.com/tls:/var/hyperledger/orderer/tls
+      - ./channel-artifacts/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
+      - ./crypto-config/ordererOrganizations/sivatech.com/orderers/orderer.sivatech.com/msp:/var/hyperledger/orderer/msp
+      - ./crypto-config/ordererOrganizations/sivatech.com/orderers/orderer.sivatech.com/tls:/var/hyperledger/orderer/tls
       - orderer.sivatech.com:/opt/gopath/src/chaincode/input
     ports:
       - 7050:7050
@@ -41,8 +41,8 @@ services:
       - GOPATH=/opt/gopath
     volumes:
       - /var/run/:/host/var/run/
-      - ../crypto-config/peerOrganizations/tictactoe.sivatech.com/peers/peer0.tictactoe.sivatech.com/msp:/etc/hyperledger/fabric/msp
-      - ../crypto-config/peerOrganizations/tictactoe.sivatech.com/peers/peer0.tictactoe.sivatech.com/tls:/etc/hyperledger/fabric/tls
+      - ./crypto-config/peerOrganizations/tictactoe.sivatech.com/peers/peer0.tictactoe.sivatech.com/msp:/etc/hyperledger/fabric/msp
+      - ./crypto-config/peerOrganizations/tictactoe.sivatech.com/peers/peer0.tictactoe.sivatech.com/tls:/etc/hyperledger/fabric/tls
       - peer0.tictactoe.sivatech.com:/opt/gopath/src/chaincode/input
       - ../server/chaincode:/opt/gopath/src/chaincode/input
     ports:
@@ -63,8 +63,8 @@ services:
       - GOPATH=/opt/gopath
     volumes:
       - /var/run/:/host/var/run/
-      - ../crypto-config/peerOrganizations/tictactoe.sivatech.com/peers/peer1.tictactoe.sivatech.com/msp:/etc/hyperledger/fabric/msp
-      - ../crypto-config/peerOrganizations/tictactoe.sivatech.com/peers/peer1.tictactoe.sivatech.com/tls:/etc/hyperledger/fabric/tls
+      - ./crypto-config/peerOrganizations/tictactoe.sivatech.com/peers/peer1.tictactoe.sivatech.com/msp:/etc/hyperledger/fabric/msp
+      - ./crypto-config/peerOrganizations/tictactoe.sivatech.com/peers/peer1.tictactoe.sivatech.com/tls:/etc/hyperledger/fabric/tls
       - peer1.tictactoe.sivatech.com:/opt/gopath/src/chaincode/input
       - ../server/chaincode:/opt/gopath/src/chaincode/input
     ports:

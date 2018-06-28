@@ -3,7 +3,7 @@ package networkconfig
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"hyperledger/hyperledger-tictactoe/server/pathUtil"
+	"github.com/sgururajan/hyperledger-tictactoe/server/pathUtil"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -19,26 +19,57 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/core/cryptosuite"
 	"github.com/hyperledger/fabric-sdk-go/pkg/core/logging/api"
 	"github.com/pkg/errors"
+	"strconv"
 )
 
 // FabNetworkConfiguration - FabNetworkConfiguration
 type FabNetworkConfiguration struct {
-	name             string
-	orgsConfig       map[string]fab.OrganizationConfig
-	orderersConfig   map[string]fab.OrdererConfig
-	peersConfig      map[string]fab.PeerConfig
-	channelsConfig   map[string]fab.ChannelEndpointConfig
-	caConfig         map[string]FabCAConfig
-	securityConfig   FabSecurityConfiguration
-	isSystemCertPool bool
+	Name                  string
+	Organizations         map[string]fab.OrganizationConfig
+	Orderers              map[string]fab.OrdererConfig
+	Peers                 map[string]fab.PeerConfig
+	Channels              map[string]fab.ChannelEndpointConfig
+	CAs                   map[string]FabCAConfig
+	SecurityConfiguration *FabSecurityConfiguration
+	OrgsByName            map[string]*OrgInfo
+	PeersByEndpoint       map[string]*PeerInfo
+	OrderersByEndpoint    map[string]*OrdererInfo
+	OrgsInfo              []*OrgInfo
+	PeersInfo             []*PeerInfo
+	OrderersInfo          []*OrdererInfo
+	isSystemCertPool      bool
 	//networkConfig    fab.NetworkConfig
 	tlsCertPool  fab.CertPool
-	clientConfig FabClientConfig
+	ClientConfig *FabClientConfig
 	rwLock       sync.Mutex
+}
+
+type OrdererInfo struct {
+	Endpoint    string
+	IsPrimary   bool
+	OrdererType string
+}
+
+type OrgInfo struct {
+	Name          string
+	Endpoint      string
+	AdminUserName string
+	IsPrimary     bool
+	MSPID         string
+	MSPDir        string
+	IsOrderer     bool
+}
+
+type PeerInfo struct {
+	Endpoint        string
+	OrgName         string
+	IsEndrosingPeer bool
+	Port            uint32
 }
 
 // FabClientConfig - FabClientConfig
 type FabClientConfig struct {
+	UserName        string
 	Organization    string
 	Logging         api.LoggingType
 	CryptoConfig    msp.CCType
@@ -73,6 +104,7 @@ type FabPeerConfiguration struct {
 
 func newFabClientConfig(clientConfig ClientConfiguration) *FabClientConfig {
 	return &FabClientConfig{
+		UserName:        clientConfig.UserName,
 		Organization:    strings.ToLower(clientConfig.Organization),
 		Logging:         getFabLoggingType(clientConfig.Logging),
 		CryptoConfig:    msp.CCType{Path: clientConfig.CryptoConfigPath},
@@ -142,36 +174,101 @@ func NewFabNetworkConfiguration(name string,
 	clientConfig ClientConfiguration,
 	securityConfig SecurityConfiguration) *FabNetworkConfiguration {
 
-	result := FabNetworkConfiguration{name: name}
+	result := FabNetworkConfiguration{Name: name}
 
 	result.isSystemCertPool = false
 	result.tlsCertPool = tls2.NewCertPool(result.isSystemCertPool)
 
-	for k, v := range ordererConfig {
-		result.orderersConfig[k] = newFabOrdererConfiguration(v)
-	}
+	result.Orderers = make(map[string]fab.OrdererConfig)
+	result.Peers = make(map[string]fab.PeerConfig)
+	result.Organizations = make(map[string]fab.OrganizationConfig)
+	result.Channels = make(map[string]fab.ChannelEndpointConfig)
+	result.CAs = make(map[string]FabCAConfig)
 
-	for k, v := range peerConfig {
-		result.peersConfig[k] = newFabPeerConfiguration(v)
+	result.OrgsInfo = []*OrgInfo{}
+	result.PeersInfo = []*PeerInfo{}
+	result.OrderersInfo = []*OrdererInfo{}
+	result.OrgsByName = make(map[string]*OrgInfo)
+	result.PeersByEndpoint=make(map[string]*PeerInfo)
+	result.OrderersByEndpoint=make(map[string]*OrdererInfo)
+
+	for k, v := range ordererConfig {
+		result.Orderers[k] = newFabOrdererConfiguration(v)
+		result.OrderersInfo = append(result.OrderersInfo, &OrdererInfo{
+			Endpoint:  k,
+			IsPrimary: v.IsPrimary,
+		})
 	}
 
 	for k, v := range orgConfig {
-		result.orgsConfig[k] = newFabOrgsConfiguration(v)
+		result.Organizations[k] = newFabOrgsConfiguration(v)
+
+		orgInfo:= &OrgInfo{
+			Name:          k,
+			Endpoint:      k,
+			MSPID:         v.MSPID,
+			AdminUserName: "Admin",
+			IsPrimary:     v.IsPrimary,
+			MSPDir:        v.MSPDir,
+			IsOrderer:     v.IsOrderer,
+		}
+		result.OrgsInfo = append(result.OrgsInfo, orgInfo)
+		result.OrgsByName[k]=orgInfo
+
+		for _, pv := range v.Peers {
+			peerInfo:= &PeerInfo{
+				Endpoint: pv,
+				OrgName:  k,
+			}
+			result.PeersInfo = append(result.PeersInfo, peerInfo)
+			result.PeersByEndpoint[pv]=peerInfo
+		}
+	}
+
+	for k, v := range peerConfig {
+		result.Peers[k] = newFabPeerConfiguration(v)
+		port := getPortFromUrl(v.URL)
+		for _, pv := range result.PeersInfo {
+			if strings.Contains(v.URL, pv.Endpoint) {
+				pv.Port = port
+			}
+		}
 	}
 
 	for k, v := range chConfig {
-		result.channelsConfig[k] = newFabChannelConfig(v)
+		result.Channels[k] = newFabChannelConfig(v)
+		for _, pv := range result.PeersInfo {
+			cpv, ok := v.Peers[pv.Endpoint]
+			if !ok {
+				break
+			}
+			pv.IsEndrosingPeer = cpv.IsEndrosingPeer
+		}
 	}
 
 	for k, v := range caConfig {
-		result.caConfig[k] = newFabCAConfig(v)
+		result.CAs[k] = newFabCAConfig(v)
 	}
 
-	result.securityConfig = *newFabSecurityConfig(securityConfig)
+	result.SecurityConfiguration = newFabSecurityConfig(securityConfig)
 
-	result.clientConfig = *newFabClientConfig(clientConfig)
+	result.ClientConfig = newFabClientConfig(clientConfig)
 
 	return &result
+}
+
+func getPortFromUrl(url string) uint32 {
+	index := strings.LastIndex(url, ":")
+	if index > 0 {
+		res, err := strconv.ParseUint(url[index:], 10, 32)
+		if err != nil {
+			return 0
+		}
+
+		return uint32(res)
+	}
+
+	return 0
 }
 
 func newFabOrgsConfiguration(orgConfig OrganizationConfiguration) fab.OrganizationConfig {
@@ -190,6 +287,8 @@ func newFabChannelConfig(chConfig ChannelConfiguration) fab.ChannelEndpointConfi
 			QueryChannelConfig: newFabQueryChannelConfig(chConfig.QueryChannelPolicy),
 		},
 	}
+
+	config.Peers = make(map[string]fab.PeerChannelConfig)
 
 	for k, v := range chConfig.Peers {
 		pConfig := newFabChannelPeerConfiguration(v)
@@ -262,7 +361,7 @@ var defaultTimeOutTypes = map[fab.TimeoutType]time.Duration{
 
 func getGRPCOptions(opts GRPCOptions) map[string]interface{} {
 	return map[string]interface{}{
-		"ssl-target-name-override": opts.SSLTargetNameOveride,
+		"ssl-target-Name-override": opts.SSLTargetNameOveride,
 		"keep-alive-time":          opts.KeepAliveTime,
 		"keep-alive-timeout":       opts.KeepAliveTimeOut,
 		"keep-alive-permit":        opts.KeepAlivePermit,
@@ -273,12 +372,12 @@ func getGRPCOptions(opts GRPCOptions) map[string]interface{} {
 
 func (m *FabNetworkConfiguration) Client() *msp.ClientConfig {
 	return &msp.ClientConfig{
-		Organization:    strings.ToLower(m.clientConfig.Organization),
-		Logging:         m.clientConfig.Logging,
-		CryptoConfig:    m.clientConfig.CryptoConfig,
-		CredentialStore: m.clientConfig.CredentialStore,
-		TLSKey:          m.clientConfig.TLSCerts.Client.Key.Bytes(),
-		TLSCert:         m.clientConfig.TLSCerts.Client.Cert.Bytes(),
+		Organization:    strings.ToLower(m.ClientConfig.Organization),
+		Logging:         m.ClientConfig.Logging,
+		CryptoConfig:    m.ClientConfig.CryptoConfig,
+		CredentialStore: m.ClientConfig.CredentialStore,
+		TLSKey:          m.ClientConfig.TLSCerts.Client.Key.Bytes(),
+		TLSCert:         m.ClientConfig.TLSCerts.Client.Cert.Bytes(),
 	}
 }
 
@@ -302,7 +401,7 @@ func (m *FabNetworkConfiguration) EventServiceType() fab.EventServiceType {
 func (m *FabNetworkConfiguration) OrderersConfig() []fab.OrdererConfig {
 	orderers := []fab.OrdererConfig{}
 
-	for _, o := range m.orderersConfig {
+	for _, o := range m.Orderers {
 		if o.TLSCACert == nil && !m.isSystemCertPool {
 			return nil
 		}
@@ -314,7 +413,7 @@ func (m *FabNetworkConfiguration) OrderersConfig() []fab.OrdererConfig {
 }
 
 func (m *FabNetworkConfiguration) OrdererConfig(nameOrUrl string) (*fab.OrdererConfig, bool) {
-	orderer, ok := m.orderersConfig[strings.ToLower(nameOrUrl)]
+	orderer, ok := m.Orderers[strings.ToLower(nameOrUrl)]
 	if !ok {
 		return nil, false
 	}
@@ -323,11 +422,11 @@ func (m *FabNetworkConfiguration) OrdererConfig(nameOrUrl string) (*fab.OrdererC
 }
 
 func (m *FabNetworkConfiguration) PeersConfig(org string) ([]fab.PeerConfig, bool) {
-	orgPeers := m.orgsConfig[strings.ToLower(org)].Peers
+	orgPeers := m.Organizations[strings.ToLower(org)].Peers
 	peers := []fab.PeerConfig{}
 
 	for _, peerName := range orgPeers {
-		p := m.peersConfig[strings.ToLower(peerName)]
+		p := m.Peers[strings.ToLower(peerName)]
 		if err := m.verifyPeerConfig(p, peerName, endpoint.IsTLSEnabled(p.URL)); err != nil {
 			return nil, false
 		}
@@ -339,7 +438,7 @@ func (m *FabNetworkConfiguration) PeersConfig(org string) ([]fab.PeerConfig, boo
 }
 
 func (m *FabNetworkConfiguration) PeerConfig(nameOrUrl string) (*fab.PeerConfig, bool) {
-	pConfig, ok := m.peersConfig[strings.ToLower(nameOrUrl)]
+	pConfig, ok := m.Peers[strings.ToLower(nameOrUrl)]
 	if ok {
 		return &pConfig, true
 	}
@@ -367,17 +466,17 @@ func (m *FabNetworkConfiguration) verifyPeerConfig(p fab.PeerConfig, peerName st
 func (m *FabNetworkConfiguration) NetworkConfig() *fab.NetworkConfig {
 	//return &m.networkConfig
 	return &fab.NetworkConfig{
-		Channels:      m.channelsConfig,
-		Organizations: m.orgsConfig,
-		Orderers:      m.orderersConfig,
-		Peers:         m.peersConfig,
+		Channels:      m.Channels,
+		Organizations: m.Organizations,
+		Orderers:      m.Orderers,
+		Peers:         m.Peers,
 	}
 }
 
 func (m *FabNetworkConfiguration) NetworkPeers() []fab.NetworkPeer {
 	netPeers := []fab.NetworkPeer{}
 
-	for name, p := range m.peersConfig {
+	for name, p := range m.Peers {
 		if err := m.verifyPeerConfig(p, name, endpoint.IsTLSEnabled(p.URL)); err != nil {
 			return nil
 		}
@@ -395,7 +494,7 @@ func (m *FabNetworkConfiguration) NetworkPeers() []fab.NetworkPeer {
 }
 
 func (m *FabNetworkConfiguration) PeerMSPID(name string) (string, bool) {
-	for _, org := range m.orgsConfig {
+	for _, org := range m.Organizations {
 		for i := 0; i < len(org.Peers); i++ {
 			if strings.EqualFold(org.Peers[i], name) {
 				return org.MSPID, true
@@ -407,7 +506,7 @@ func (m *FabNetworkConfiguration) PeerMSPID(name string) (string, bool) {
 }
 
 func (m *FabNetworkConfiguration) ChannelConfig(channelName string) (*fab.ChannelEndpointConfig, bool) {
-	ch, ok := m.channelsConfig[strings.ToLower(channelName)]
+	ch, ok := m.Channels[strings.ToLower(channelName)]
 	if !ok {
 		return nil, false
 	}
@@ -417,13 +516,13 @@ func (m *FabNetworkConfiguration) ChannelConfig(channelName string) (*fab.Channe
 func (m *FabNetworkConfiguration) ChannelPeers(channelName string) ([]fab.ChannelPeer, bool) {
 	peers := []fab.ChannelPeer{}
 
-	chConfig, ok := m.channelsConfig[strings.ToLower(channelName)]
+	chConfig, ok := m.Channels[strings.ToLower(channelName)]
 	if !ok {
 		return nil, false
 	}
 
 	for peerName, chPeerConfig := range chConfig.Peers {
-		p, ok := m.peersConfig[strings.ToLower(peerName)]
+		p, ok := m.Peers[strings.ToLower(peerName)]
 		if !ok {
 			return nil, false
 		}
@@ -472,7 +571,7 @@ func (m *FabNetworkConfiguration) TLSCACertPool() fab.CertPool {
 
 func (m *FabNetworkConfiguration) TLSClientCerts() []tls.Certificate {
 	var clientCerts tls.Certificate
-	cb := m.clientConfig.TLSCerts.Client.Cert.Bytes()
+	cb := m.ClientConfig.TLSCerts.Client.Cert.Bytes()
 
 	if len(cb) == 0 {
 		return []tls.Certificate{clientCerts}
@@ -484,7 +583,7 @@ func (m *FabNetworkConfiguration) TLSClientCerts() []tls.Certificate {
 	if err != nil || pk == nil {
 		m.rwLock.Lock()
 		defer m.rwLock.Unlock()
-		ccs, err := m.loadPrivateKeyFromConfig(&m.clientConfig, clientCerts, cb)
+		ccs, err := m.loadPrivateKeyFromConfig(m.ClientConfig, clientCerts, cb)
 		if err != nil {
 			return nil
 		}
@@ -501,7 +600,7 @@ func (m *FabNetworkConfiguration) TLSClientCerts() []tls.Certificate {
 }
 
 func (m *FabNetworkConfiguration) CryptoConfigPath() string {
-	return m.clientConfig.CryptoConfig.Path
+	return m.ClientConfig.CryptoConfig.Path
 }
 
 func (m *FabNetworkConfiguration) loadPrivateKeyFromConfig(clientConfig *FabClientConfig, clientCert tls.Certificate, cb []byte) ([]tls.Certificate, error) {
@@ -555,17 +654,17 @@ func (m *FabNetworkConfiguration) CredentialStorePath() string {
 }
 
 func (m *FabNetworkConfiguration) getCAConfig(orgName string) (*msp.CAConfig, bool) {
-	if len(m.orgsConfig[strings.ToLower(orgName)].CertificateAuthorities) == 0 {
+	if len(m.Organizations[strings.ToLower(orgName)].CertificateAuthorities) == 0 {
 		return nil, false
 	}
 
-	org := m.orgsConfig[strings.ToLower(orgName)]
+	org := m.Organizations[strings.ToLower(orgName)]
 	certAuthName := org.CertificateAuthorities[0]
 	if certAuthName == "" {
 		return nil, false
 	}
 
-	caConfig, ok := m.caConfig[strings.ToLower(certAuthName)]
+	caConfig, ok := m.CAs[strings.ToLower(certAuthName)]
 	if !ok {
 		return nil, false
 	}

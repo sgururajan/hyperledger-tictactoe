@@ -3,7 +3,7 @@ package networkconfig
 import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/core/config/endpoint"
 	"github.com/pkg/errors"
-	"hyperledger/hyperledger-tictactoe/server/pathUtil"
+	"github.com/sgururajan/hyperledger-tictactoe/server/pathUtil"
 	"crypto/x509"
 	"io/ioutil"
 	"encoding/pem"

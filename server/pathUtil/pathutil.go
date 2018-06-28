@@ -54,3 +54,15 @@ func substituteEnvVar(s string, noMatch string, sep string) (string, string){
 
 	return  v, s[endPos+1:]
 }
+
+func EnsureDirectory(path string, dirName string) {
+	if _,err:= os.Stat(filepath.Join(path, dirName)); os.IsNotExist(err) {
+		os.Mkdir(filepath.Join(path, dirName), os.ModePerm)
+	}
+}
+
+func GetExecutablePath() string {
+	exePath, _:= os.Executable()
+	exePath = filepath.Dir(exePath)
+	return exePath
+}

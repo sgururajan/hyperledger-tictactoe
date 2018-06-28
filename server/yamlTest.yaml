@@ -1,0 +1,51 @@
+Profiles:
+  ordererGenesis:
+    Capabilities:
+      V1_1: true
+    Orderer:
+      OrdererType: solo
+      Addresses:
+      - localhost:7050
+      BatchTimeout: 2s
+      BatchSize:
+        MaxMessageCount: 20
+        AbsoluteMaxBytes: 99
+        PreferredMaxBytes: 512
+      Kafka:
+        Brokers:
+        - 127.0.0.1:9092
+      Organizations:
+      - Name: SivaTechOrdererMSP
+        ID: SivaTechOrdererMSP
+        MSPDir: ${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/crypto-config/ordererOrganizations/sivatech.com/msp
+      Capabilities:
+        V1_1: true
+    Consortiums:
+      testchannelConsortium:
+        Name: testchannelConsortium
+        Organizations:
+        - Name: TicTacToeMSP
+          ID: TicTacToeMSP
+          MSPDir: ${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/crypto-config/peerOrganizations/tictactoe.sivatech.com/msp
+          AnchorPeers:
+          - Host: peer0.tictactoe.sivatech.com
+            Port: 7051
+          - Host: peer1.tictactoe.sivatech.com
+            Port: 8051
+  testchannel:
+    Name: testchannel
+    Consortium: testchannelConsortium
+    Application:
+      Organizations:
+      - Name: TicTacToeMSP
+        ID: TicTacToeMSP
+        MSPDir: ${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/crypto-config/peerOrganizations/tictactoe.sivatech.com/msp
+        AnchorPeers:
+        - Host: peer0.tictactoe.sivatech.com
+          Port: 7051
+        - Host: peer1.tictactoe.sivatech.com
+          Port: 8051
+      Capabilities:
+        V1_1: true
+      Application:
+        Organizations: []

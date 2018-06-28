@@ -63,3 +63,5 @@ typings/
 server/bin/
 
 defaultNetworkConfig\.json
+
+network/tools/

@@ -2,13 +2,13 @@ package testNetwork
 
 import (
 	"fmt"
-	"hyperledger/hyperledger-tictactoe/server/networkconfig"
+	"github.com/sgururajan/hyperledger-tictactoe/server/networkconfig"
 	"path/filepath"
 	"time"
 )
 
 var defaultHost = "localhost"
-var cryptoConfigPath = "${GOPATH}/src/hyperledger/hyperledger-tictactoe/networkconfig/crypto-config"
+var cryptoConfigPath = "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/crypto-config"
 
 func DefaultNetworkConfiguration() networkconfig.NetworkConfiguration {
 	clientConfig := getDefaultClientConfig()
@@ -20,7 +20,7 @@ func DefaultNetworkConfiguration() networkconfig.NetworkConfiguration {
 	securityConfig := getSecurityConfiguration()
 
 	return networkconfig.NetworkConfiguration{
-		Name:"testNetwork",
+		Name: "testNetwork",
 		SecurityConfiguration:      securityConfig,
 		CAConfiguration:            caConfig,
 		ChannelsConfiguration:      channelsConfig,
@@ -72,8 +72,8 @@ func getDefaultCAConfig() map[string]networkconfig.CAConfiguration {
 		"ca.sivatech.com": {
 			URL: fmt.Sprintf("%s:7054", defaultHost),
 			TLSCertClientPaths: networkconfig.TLSKeyPathPair{
-				KeyPath:  "${GOPATH}/src/hyperledger/hyperledger-tictactoe/network/client-crypto/client-key.pem",
-				CertPath: "${GOPATH}/src/hyperledger/hyperledger-tictactoe/network/client-crypto/client-cert.pem",
+				KeyPath:  "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/client-crypto/client-key.pem",
+				CertPath: "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/client-crypto/client-cert.pem",
 			},
 			TLSCertPath: filepath.Join(cryptoConfigPath, "peerOrganizations/tictactoe.sivatech.com/ca/ca.tictactoe.sivatech.com-cert.pem"),
 			RegistrarCredential: networkconfig.Credential{
@@ -105,14 +105,19 @@ func getDefaultPeersConfig() map[string]networkconfig.PeerConfiguration {
 func getDefaultOrganizationConfig() map[string]networkconfig.OrganizationConfiguration {
 	return map[string]networkconfig.OrganizationConfiguration{
 		"sivatech": {
-			MSPID:      "TicTacToeMSP",
-			CryptoPath: "peerOrganizations/tictactoe.sivatech.com/users/{username}@tictactoe.sivatech.com/msp",
-			Peers:      []string{"peer0.tictactoe.sivatech.com", "peer1.tictactoe.sivatech.com"},
+			MSPID:                  "TicTacToeMSP",
+			CryptoPath:             "peerOrganizations/tictactoe.sivatech.com/users/{username}@tictactoe.sivatech.com/msp",
+			Peers:                  []string{"peer0.tictactoe.sivatech.com", "peer1.tictactoe.sivatech.com"},
+			IsPrimary:              true,
 			CertificateAuthorities: []string{"ca.sivatech.com"},
+			IsOrderer:              false,
+			MSPDir:                 filepath.Join(cryptoConfigPath, "peerOrganizations/tictactoe.sivatech.com/msp"),
 		},
 		"sivatechordererorg": {
-			MSPID:      "SivaTechOrdererOrg",
+			MSPID:      "SivaTechOrdererMSP",
 			CryptoPath: "ordererOrganizations/sivatech.com/users/{username}@sivatech.com/msp",
+			IsOrderer:  true,
+			MSPDir:     filepath.Join(cryptoConfigPath, "ordererOrganizations/sivatech.com/msp"),
 		},
 	}
 }
@@ -178,13 +183,14 @@ func getDefaultChannelPeerConfig() map[string]networkconfig.ChannelPeerConfigura
 
 func getDefaultClientConfig() networkconfig.ClientConfiguration {
 	return networkconfig.ClientConfiguration{
+		UserName:            "Admin",
 		Organization:        "sivatech",
 		Logging:             networkconfig.DEBUG,
-		CryptoConfigPath:    "${GOPATH}/src/hyperledger/hyperledger-tictactoe/network/crypto-config",
+		CryptoConfigPath:    cryptoConfigPath,
 		CredentialStorePath: "/tmp/store",
 		TLSKeyPair: networkconfig.TLSKeyPathPair{
-			KeyPath:  "${GOPATH}/src/hyperledger/hyperledger-tictactoe/network/client-crypto/client-key.pem",
-			CertPath: "${GOPATH}/src/hyperledger/hyperledger-tictactoe/network/client-crypto/client-cert.pem",
+			KeyPath:  "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/client-crypto/client-key.pem",
+			CertPath: "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/client-crypto/client-cert.pem",
 		},
 	}
 }

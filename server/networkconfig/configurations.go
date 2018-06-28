@@ -14,7 +14,7 @@ import "time"
 
 // NetworkConfiguration - NetworkConfiguration
 type NetworkConfiguration struct {
-	Name                       string                               `json:"name"`
+	Name                       string                               `json:"Name"`
 	OrganizationsConfiguration map[string]OrganizationConfiguration `json:"organizationsConfiguration"`
 	OrderersConfiguration      map[string]OrdererConfiguration      `json:"orderersConfiguration"`
 	PeersConfiguration         map[string]PeerConfiguration         `json:"peersConfiguration"`
@@ -60,6 +60,7 @@ type ClientConfiguration struct {
 	CryptoConfigPath    string         `json:"cryptoConfigPath"`
 	CredentialStorePath string         `json:"credentialStorePath"`
 	TLSKeyPair          TLSKeyPathPair `json:"tlsKeyPair"`
+	UserName            string         `json:"userName"`
 }
 
 // GRPCOptions - GRPCOptions
@@ -95,6 +96,7 @@ type OrdererConfiguration struct {
 	URL           string      `json:"url"`
 	GRPCOptions   GRPCOptions `json:"grpcOptions"`
 	TLSCACertPath string      `json:"tlsCACertPath"`
+	IsPrimary     bool        `json:"isPrimary"`
 }
 
 // OrganizationConfiguration - OrganizationConfiguration
@@ -103,7 +105,9 @@ type OrganizationConfiguration struct {
 	CryptoPath             string   `json:"cryptoPath"`
 	Peers                  []string `json:"peers"`
 	CertificateAuthorities []string `json:"certificateAuthorities"`
-	UserName               string   `json:"userName"`
+	IsPrimary              bool     `json:"isPrimary"`
+	IsOrderer              bool     `json:"isOrderer"`
+	MSPDir                 string   `json:"mspDir"`
 }
 
 // ChannelPeerConfiguration - ChannelPeerConfiguration

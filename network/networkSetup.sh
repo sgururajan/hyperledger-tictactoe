@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export PATH=${PWD}/../../bin:${PWD}:$PATH
+export PATH=${PWD}/tools:${PWD}:$PATH
 export FABROC_CFG_PATH=${PWD}
 export COMPOSE_PROJECT_NAME="tictactoe"
 export IMAGE_TAG="latest"
@@ -135,8 +135,8 @@ function networkDown () {
 		docker run -v $PWD:/tmp/first-network -rm hyperledger/fabric-tools:$IMAGETAG rm -Rf /tmp/first-network/ledger-backup
 		clearContainers
 		removeUnwantedImages
-		 rm -rf channel-artifacts/*.block channel-artifacts/*.tx crypto-config
-		 rm -f docker-compose-e2e.yaml
+#		 rm -rf channel-artifacts/*.block channel-artifacts/*.tx crypto-config
+#		 rm -f docker-compose-e2e.yaml
 	fi
 }
 

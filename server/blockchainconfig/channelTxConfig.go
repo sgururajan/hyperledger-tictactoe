@@ -2,7 +2,7 @@ package blockchainconfig
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/logging"
 	"github.com/sgururajan/hyperledger-tictactoe/server/common"
 	"github.com/sgururajan/hyperledger-tictactoe/server/networkconfig"
 	"github.com/sgururajan/hyperledger-tictactoe/server/pathUtil"
@@ -102,6 +102,7 @@ type ChannelOrg struct {
 	AnchorPeers []string
 	IsOrderer   bool
 	Endpoint    string
+	Consortium  string
 }
 
 type ChannelTxConfigHelper struct {
@@ -109,53 +110,32 @@ type ChannelTxConfigHelper struct {
 	rwLock   sync.RWMutex
 }
 
+var logger = logging.NewLogger("channelTxConfig")
+
 func NewChannelTxConfigHelper() *ChannelTxConfigHelper {
 	return &ChannelTxConfigHelper{}
 }
 
-func (m *ChannelTxConfigHelper) CreateChannelTxObject(config *networkconfig.FabNetworkConfiguration, channelName string, chOrgs []ChannelOrg, ordName string) error {
-	orgs := m.getChannelOrganizations(config, chOrgs)
-	//appDefaults:= application{Organizations: []Organization{} }
+func (m *ChannelTxConfigHelper) CreateChannelTxObject(config *networkconfig.FabNetworkConfiguration, chRequest common.CreateChannelRequest) error {
+
 	capabilities := Capabilities{
 		Application: Capability{V1: true},
 		Global:      Capability{V1: true},
 		Orderer:     Capability{V1: true},
 	}
-	ord, err := m.getChannelOrderer(config, ordName)
 
-	if err != nil {
-		return err
-	}
-
-	var ordOrg Organization
-	for _, o := range orgs {
-		if o.endpoint == ordName {
-			ordOrg = o
-		}
-		//cOrg, ok:= config.Orderers[ordName]
-		//if ok && o.ID == cOrg.GRPCOptions["ssl-target-Name-override"].(string) {
-		//	ordOrg = o
-		//}
-	}
-
-	noOrdererOrgs := []Organization{}
-
-	for _, o := range orgs {
-		if !o.isOrderer {
-			noOrdererOrgs = append(noOrdererOrgs, o)
-		}
-	}
+	orgs:= m.getChannelOrganizations(config, chRequest)
+	ord, _:= m.getChannelOrderer(config, config.OrderersInfo[0].Endpoint)
 
 	ordGenesisProfile := OrdererGenesis{
 		Capabilities:  capabilities.Orderer,
 		Orderer:       ord,
-		Organizations: []Organization{ordOrg},
+		Organizations: orgs,
 	}
 
-	consortiumName := fmt.Sprintf("%sConsortium", channelName)
 	consortium := Consortium{
-		Organizations: noOrdererOrgs,
-		name:          consortiumName,
+		Organizations: orgs,
+		name:          chRequest.ConsortiumName,
 	}
 
 	genesisProfiles := GenesisProfile{
@@ -164,31 +144,104 @@ func (m *ChannelTxConfigHelper) CreateChannelTxObject(config *networkconfig.FabN
 	}
 
 	genesisProfiles.Consortiums = make(map[string]Consortium)
-	genesisProfiles.Consortiums[consortiumName] = consortium
+	genesisProfiles.Consortiums[chRequest.ConsortiumName] = consortium
 
 	chApplication := ChannelApplication{
-		Organizations: noOrdererOrgs,
+		Organizations: orgs,
 		Capabilities:  capabilities.Application,
 	}
 
 	chProfile := ChannelProfile{
-		Consortium:         consortiumName,
+		Consortium:         chRequest.ConsortiumName,
 		ChannelApplication: chApplication,
-		name:               channelName,
+		name:               chRequest.ChannelName,
 	}
 
 	m.Profiles = make(map[string]interface{})
 
-	/*genesisKey:= fmt.Sprintf("%sGenesis", channelName)
-	m.Profiles[genesisKey] = genesisProfiles*/
+	if !common.HasConsortium(config.Consortiums, chRequest.ConsortiumName) {
+		//genesisKey:= fmt.Sprintf("%sGenesis", chRequest.ChannelName)
+		//m.Profiles[genesisKey] = genesisProfiles
+		// TODO: need to add the consortium to the orderer by updating the genesis block.
+	}
 
-	m.Profiles[channelName] = chProfile
-
-	//ybytes, err:= yaml.Marshal(m)
-	//ioutil.WriteFile("yamlTest.yaml", ybytes, os.ModePerm)
+	m.Profiles[chRequest.ChannelName] = chProfile
 
 	return nil
 }
+
+//func (m *ChannelTxConfigHelper) CreateChannelTxObject1(config *networkconfig.FabNetworkConfiguration, channelName string, chOrgs []ChannelOrg, ordName string) error {
+//	orgs := m.getChannelOrganizations(config, chOrgs)
+//	//appDefaults:= application{Organizations: []Organization{} }
+//	capabilities := Capabilities{
+//		Application: Capability{V1: true},
+//		Global:      Capability{V1: true},
+//		Orderer:     Capability{V1: true},
+//	}
+//	ord, _ := m.getChannelOrderer(config, ordName)
+//
+//	var ordOrg Organization
+//	for _, o := range orgs {
+//		if o.endpoint == ordName {
+//			ordOrg = o
+//		}
+//		//cOrg, ok:= config.Orderers[ordName]
+//		//if ok && o.ID == cOrg.GRPCOptions["ssl-target-Name-override"].(string) {
+//		//	ordOrg = o
+//		//}
+//	}
+//
+//	noOrdererOrgs := []Organization{}
+//
+//	for _, o := range orgs {
+//		if !o.isOrderer {
+//			noOrdererOrgs = append(noOrdererOrgs, o)
+//		}
+//	}
+//
+//	ordGenesisProfile := OrdererGenesis{
+//		Capabilities:  capabilities.Orderer,
+//		Orderer:       ord,
+//		Organizations: []Organization{ordOrg},
+//	}
+//
+//	consortiumName := fmt.Sprintf("%sConsortium", channelName)
+//	consortium := Consortium{
+//		Organizations: noOrdererOrgs,
+//		name:          consortiumName,
+//	}
+//
+//	genesisProfiles := GenesisProfile{
+//		Capabilities:   capabilities.Global,
+//		OrdererGenesis: ordGenesisProfile,
+//	}
+//
+//	genesisProfiles.Consortiums = make(map[string]Consortium)
+//	genesisProfiles.Consortiums[consortiumName] = consortium
+//
+//	chApplication := ChannelApplication{
+//		Organizations: noOrdererOrgs,
+//		Capabilities:  capabilities.Application,
+//	}
+//
+//	chProfile := ChannelProfile{
+//		Consortium:         consortiumName,
+//		ChannelApplication: chApplication,
+//		name:               channelName,
+//	}
+//
+//	m.Profiles = make(map[string]interface{})
+//
+//	/*genesisKey:= fmt.Sprintf("%sGenesis", channelName)
+//	m.Profiles[genesisKey] = genesisProfiles*/
+//
+//	m.Profiles[channelName] = chProfile
+//
+//	//ybytes, err:= yaml.Marshal(m)
+//	//ioutil.WriteFile("yamlTest.yaml", ybytes, os.ModePerm)
+//
+//	return nil
+//}
 
 func (m *ChannelTxConfigHelper) CreateConfigurationBlocks(txFileName string) error {
 	m.rwLock.Lock()
@@ -249,14 +302,46 @@ func (m *ChannelTxConfigHelper) CreateConfigurationBlocks(txFileName string) err
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Created channel tx block for profile %s\n", key)
+			logger.Infof("Created channel tx block for profile %s\n", key)
 		}
 	}
 
 	return nil
 }
 
-func (m *ChannelTxConfigHelper) getChannelOrderer(config *networkconfig.FabNetworkConfiguration, ordName string) (Orderer, error) {
+func (m *ChannelTxConfigHelper) getChannelOrganizations(config *networkconfig.FabNetworkConfiguration, chRequest common.CreateChannelRequest) []Organization {
+	orgs := []Organization{}
+
+	for _, o := range chRequest.OrganizationNames {
+		orgConfig, ok := config.Organizations[strings.ToLower(o)]
+		if ok {
+			orgPeers := []Peer{}
+			_, pok:= chRequest.AnchorPeers[o]
+			if pok {
+				for _, p := range chRequest.AnchorPeers[o] {
+					aPeer, ok := config.Peers[p]
+					if ok {
+						orgPeers = append(orgPeers, Peer{
+							Host: aPeer.GRPCOptions["ssl-target-name-override"].(string),
+							Port: common.GetPortFromUrl(aPeer.URL),
+						})
+					}
+				}
+			}
+
+			orgs = append(orgs, Organization{
+				MSPDir:      pathUtil.Substitute(config.OrgsByName[o].MSPDir),
+				Name:        orgConfig.MSPID,
+				ID:          orgConfig.MSPID,
+				AnchorPeers: orgPeers,
+			})
+		}
+	}
+
+	return orgs
+}
+
+func (m *ChannelTxConfigHelper) getChannelOrderer(config *networkconfig.FabNetworkConfiguration, ordName string) (Orderer, bool) {
 	Kafka := Kafka{
 		Brokers: []string{
 			"127.0.0.1:9092",
@@ -265,7 +350,7 @@ func (m *ChannelTxConfigHelper) getChannelOrderer(config *networkconfig.FabNetwo
 
 	ord, ok := config.Orderers[ordName]
 	if !ok {
-		return Orderer{}, errors.Errorf("orderer %s not found", ordName)
+		return Orderer{}, false
 	}
 
 	ordAddress := []string{ord.URL}
@@ -280,35 +365,35 @@ func (m *ChannelTxConfigHelper) getChannelOrderer(config *networkconfig.FabNetwo
 			PreferredMaxBytes: 512,
 		},
 		BatchTimeout: 2 * time.Second,
-	}, nil
+	}, true
 }
 
-func (m *ChannelTxConfigHelper) getChannelOrganizations(config *networkconfig.FabNetworkConfiguration, chOrgs []ChannelOrg) []Organization {
-	orgs := []Organization{}
-
-	for _, o := range chOrgs {
-		orgConfig, ok := config.Organizations[strings.ToLower(o.Name)]
-		if ok {
-			orgPeers := []Peer{}
-			for _, p := range o.AnchorPeers {
-				aPeer, ok := config.Peers[p]
-				if ok {
-					orgPeers = append(orgPeers, Peer{
-						Host: aPeer.GRPCOptions["ssl-target-Name-override"].(string),
-						Port: common.GetPortFromUrl(aPeer.URL),
-					})
-				}
-			}
-			orgs = append(orgs, Organization{
-				MSPDir:      pathUtil.Substitute(config.OrgsByName[o.Name].MSPDir),
-				Name:        orgConfig.MSPID,
-				ID:          orgConfig.MSPID,
-				AnchorPeers: orgPeers,
-				isOrderer:   o.IsOrderer,
-				endpoint:    o.Endpoint,
-			})
-		}
-	}
-
-	return orgs
-}
+//func (m *ChannelTxConfigHelper) getChannelOrganizations1(config *networkconfig.FabNetworkConfiguration, chOrgs []ChannelOrg) []Organization {
+//	orgs := []Organization{}
+//
+//	for _, o := range chOrgs {
+//		orgConfig, ok := config.Organizations[strings.ToLower(o.Name)]
+//		if ok {
+//			orgPeers := []Peer{}
+//			for _, p := range o.AnchorPeers {
+//				aPeer, ok := config.Peers[p]
+//				if ok {
+//					orgPeers = append(orgPeers, Peer{
+//						Host: aPeer.GRPCOptions["ssl-target-name-override"].(string),
+//						Port: common.GetPortFromUrl(aPeer.URL),
+//					})
+//				}
+//			}
+//			orgs = append(orgs, Organization{
+//				MSPDir:      pathUtil.Substitute(config.OrgsByName[o.Name].MSPDir),
+//				Name:        orgConfig.MSPID,
+//				ID:          orgConfig.MSPID,
+//				AnchorPeers: orgPeers,
+//				isOrderer:   o.IsOrderer,
+//				endpoint:    o.Endpoint,
+//			})
+//		}
+//	}
+//
+//	return orgs
+//}

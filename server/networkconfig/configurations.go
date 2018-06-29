@@ -14,15 +14,17 @@ import "time"
 
 // NetworkConfiguration - NetworkConfiguration
 type NetworkConfiguration struct {
-	Name                       string                               `json:"Name"`
-	OrganizationsConfiguration map[string]OrganizationConfiguration `json:"organizationsConfiguration"`
-	OrderersConfiguration      map[string]OrdererConfiguration      `json:"orderersConfiguration"`
-	PeersConfiguration         map[string]PeerConfiguration         `json:"peersConfiguration"`
-	ChannelsConfiguration      map[string]ChannelConfiguration      `json:"channelsConfiguration"`
-	CAConfiguration            map[string]CAConfiguration           `json:"caConfiguration"`
-	ClientConfiguration        ClientConfiguration                  `json:"clientConfiguration"`
-	IsSystemCertPool           bool                                 `json:"isSystemCertPool"`
-	SecurityConfiguration      SecurityConfiguration                `json:"securityConfiguration"`
+	Name                  string                          `json:"Name"`
+	Organizations         map[string]OrganizationInfo     `json:"organizations"`
+	OrderersConfiguration map[string]OrdererConfiguration `json:"orderersConfiguration"`
+	PeersConfiguration    map[string]PeerConfiguration    `json:"peersConfiguration"`
+	ChannelsConfiguration map[string]ChannelConfiguration `json:"channelsConfiguration"`
+	CAConfiguration       map[string]CAConfiguration      `json:"caConfiguration"`
+	ClientConfiguration   ClientConfiguration             `json:"clientConfiguration"`
+	IsSystemCertPool      bool                            `json:"isSystemCertPool"`
+	SecurityConfiguration SecurityConfiguration           `json:"securityConfiguration"`
+	Consortiums           map[string][]string             `json:"consortiums"` // consortiums and its participating organization groups
+	//OrganizationsConfiguration map[string]OrganizationConfiguration `json:"organizationsConfiguration"`
 }
 
 // TLSKeyPathPair - TLSKeyPathPair
@@ -56,7 +58,7 @@ const (
 // ClientConfiguration - ClientConfiguration
 type ClientConfiguration struct {
 	Organization        string         `json:"organization"`
-	Logging             LoggingLevel   `json:"logging"`
+	Logging             LoggingLevel   `json:"serverlog"`
 	CryptoConfigPath    string         `json:"cryptoConfigPath"`
 	CredentialStorePath string         `json:"credentialStorePath"`
 	TLSKeyPair          TLSKeyPathPair `json:"tlsKeyPair"`
@@ -97,6 +99,18 @@ type OrdererConfiguration struct {
 	GRPCOptions   GRPCOptions `json:"grpcOptions"`
 	TLSCACertPath string      `json:"tlsCACertPath"`
 	IsPrimary     bool        `json:"isPrimary"`
+	MSPID         string      `json:"mspid"`
+	CryptoPath    string      `json:"cryptoPath"`
+	MSPDir        string      `json:"mspDir"`
+}
+
+// OrganizationInfo - information about the organization. OrgID, name, domain, fabric config etc
+type OrganizationInfo struct {
+	Name          string                    `json:"name"`
+	Domain        string                    `json:"domain"`
+	OrgID         string                    `json:"orgID"`
+	IsOwner       bool                      `json:"isOwner"` // is this org owner of the network
+	Configuration OrganizationConfiguration `json:"configuration"`
 }
 
 // OrganizationConfiguration - OrganizationConfiguration
@@ -108,6 +122,7 @@ type OrganizationConfiguration struct {
 	IsPrimary              bool     `json:"isPrimary"`
 	IsOrderer              bool     `json:"isOrderer"`
 	MSPDir                 string   `json:"mspDir"`
+	Name                   string   `json:"name"`
 }
 
 // ChannelPeerConfiguration - ChannelPeerConfiguration

@@ -13,7 +13,8 @@ var cryptoConfigPath = "${GOPATH}/src/github.com/sgururajan/hyperledger-tictacto
 func DefaultNetworkConfiguration() networkconfig.NetworkConfiguration {
 	clientConfig := getDefaultClientConfig()
 	channelsConfig := getDefaultChannelConfig()
-	organizationsConfig := getDefaultOrganizationConfig()
+	//organizationsConfig := getDefaultOrganizationConfig()
+	organiations := getDefaultOrganizationInfo()
 	orderersConfig := getDefaultOrderersConfig()
 	peersConfig := getDefaultPeersConfig()
 	caConfig := getDefaultCAConfig()
@@ -21,14 +22,15 @@ func DefaultNetworkConfiguration() networkconfig.NetworkConfiguration {
 
 	return networkconfig.NetworkConfiguration{
 		Name: "testNetwork",
-		SecurityConfiguration:      securityConfig,
-		CAConfiguration:            caConfig,
-		ChannelsConfiguration:      channelsConfig,
-		IsSystemCertPool:           false,
-		OrderersConfiguration:      orderersConfig,
-		OrganizationsConfiguration: organizationsConfig,
-		PeersConfiguration:         peersConfig,
-		ClientConfiguration:        clientConfig,
+		SecurityConfiguration: securityConfig,
+		CAConfiguration:       caConfig,
+		ChannelsConfiguration: channelsConfig,
+		IsSystemCertPool:      false,
+		OrderersConfiguration: orderersConfig,
+		Organizations:         organiations,
+		PeersConfiguration:    peersConfig,
+		ClientConfiguration:   clientConfig,
+		//OrganizationsConfiguration: organizationsConfig,
 	}
 }
 
@@ -102,6 +104,26 @@ func getDefaultPeersConfig() map[string]networkconfig.PeerConfiguration {
 	}
 }
 
+func getDefaultOrganizationInfo() map[string]networkconfig.OrganizationInfo {
+	return map[string]networkconfig.OrganizationInfo{
+		"sivatech": {
+			Name: "sivatech",
+			Configuration: networkconfig.OrganizationConfiguration{
+				MSPID:                  "TicTacToeMSP",
+				CryptoPath:             "peerOrganizations/tictactoe.sivatech.com/users/{username}@tictactoe.sivatech.com/msp",
+				Peers:                  []string{"peer0.tictactoe.sivatech.com", "peer1.tictactoe.sivatech.com"},
+				IsPrimary:              true,
+				CertificateAuthorities: []string{"ca.sivatech.com"},
+				IsOrderer:              false,
+				MSPDir:                 filepath.Join(cryptoConfigPath, "peerOrganizations/tictactoe.sivatech.com/msp"),
+			},
+			OrgID:   "SivAtEcHoRgId",
+			Domain:  "sivatech.com",
+			IsOwner: true,
+		},
+	}
+}
+
 func getDefaultOrganizationConfig() map[string]networkconfig.OrganizationConfiguration {
 	return map[string]networkconfig.OrganizationConfiguration{
 		"sivatech": {
@@ -113,21 +135,19 @@ func getDefaultOrganizationConfig() map[string]networkconfig.OrganizationConfigu
 			IsOrderer:              false,
 			MSPDir:                 filepath.Join(cryptoConfigPath, "peerOrganizations/tictactoe.sivatech.com/msp"),
 		},
-		"sivatechordererorg": {
-			MSPID:      "SivaTechOrdererMSP",
-			CryptoPath: "ordererOrganizations/sivatech.com/users/{username}@sivatech.com/msp",
-			IsOrderer:  true,
-			MSPDir:     filepath.Join(cryptoConfigPath, "ordererOrganizations/sivatech.com/msp"),
-		},
 	}
 }
 
 func getDefaultOrderersConfig() map[string]networkconfig.OrdererConfiguration {
 	return map[string]networkconfig.OrdererConfiguration{
-		"orderer.sivatech.com": {
+		"sivatechordererorg": {
 			URL:           fmt.Sprintf("%s:7050", defaultHost),
 			GRPCOptions:   getDefaultGRPCOption("orderer.sivatech.com"),
 			TLSCACertPath: filepath.Join(cryptoConfigPath, "ordererOrganizations/sivatech.com/tlsca/tlsca.sivatech.com-cert.pem"),
+			MSPID:         "SivaTechOrdererMSP",
+			CryptoPath:    "ordererOrganizations/sivatech.com/users/{username}@sivatech.com/msp",
+			MSPDir:        filepath.Join(cryptoConfigPath, "ordererOrganizations/sivatech.com/msp"),
+			IsPrimary:     true,
 		},
 	}
 }

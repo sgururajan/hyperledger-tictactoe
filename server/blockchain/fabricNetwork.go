@@ -1,16 +1,23 @@
 package blockchain
 
 import (
+	"fmt"
+	"github.com/hyperledger/fabric-sdk-go/pkg/client/msp"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/resmgmt"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/errors/retry"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/logging"
 	mspctx "github.com/hyperledger/fabric-sdk-go/pkg/common/providers/msp"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
-	"github.com/sgururajan/hyperledger-tictactoe/server/networkconfig"
-	"fmt"
 	"github.com/pkg/errors"
 	"github.com/sgururajan/hyperledger-tictactoe/server/blockchainconfig"
-	"path/filepath"
+	"github.com/sgururajan/hyperledger-tictactoe/server/common"
+	"github.com/sgururajan/hyperledger-tictactoe/server/networkconfig"
 	"github.com/sgururajan/hyperledger-tictactoe/server/pathUtil"
+	"path/filepath"
+	"os"
 )
+
+var logger = logging.NewLogger("fabricNetwork")
 
 type FabricNetwork struct {
 	networkConfig *networkconfig.FabNetworkConfiguration
@@ -32,15 +39,15 @@ func (m *FabricNetwork) Initialize() error {
 		return fmt.Errorf("network %s already intialized", m.networkConfig.Name)
 	}
 
-	sdkOptions:= []fabsdk.Option{
+	sdkOptions := []fabsdk.Option{
 		fabsdk.WithEndpointConfig(m.networkConfig),
 		fabsdk.WithCryptoSuiteConfig(m.networkConfig.SecurityConfiguration),
 		fabsdk.WithIdentityConfig(m.networkConfig),
 	}
 
-	sdk, err:= fabsdk.New(nil, sdkOptions...)
+	sdk, err := fabsdk.New(nil, sdkOptions...)
 
-	if err!=nil {
+	if err != nil {
 		return errors.WithMessage(err, "unable to intialize sdk")
 	}
 
@@ -49,114 +56,120 @@ func (m *FabricNetwork) Initialize() error {
 	return nil
 }
 
-func (m *FabricNetwork) IsChannelExists(channelId string) (bool, error) {
+func (m *FabricNetwork) IsChannelExists(orgId string, chRequest common.CreateChannelRequest) (bool, error) {
 
-	//clientContext := network.sdk.Context(fabsdk.WithUser(network.OrgAdmin), fabsdk.WithOrg(network.OrgName))
-	//
-	//resMgmtClient, err := resmgmt.New(clientContext)
-	//if err != nil {
-	//	panic(err)
-	//}
-
-	//ordererName, ok:= getDefaultOrdererEndpoint(m.networkConfig)
-	//if !ok {
-	//	return false,errors.Errorf("unable to get default orderer")
-	//}
-
-	/*orgInfo, ok:= getDefaultOrgInfo(m.networkConfig)
-	if !ok || orgInfo.Endpoint=="" {
-		return false, errors.Errorf("no organization found")
-	}
-
-	orgKey:= orgInfo.Endpoint
-	peerKey, ok:= getDefaultEndrosingPeerEndpointForOrganization(m.networkConfig, orgKey)
+	creatorOrg, ok := m.networkConfig.OrgByOrgId[orgId]
 	if !ok {
-		return false, errors.Errorf("no peers found for org %s", orgKey)
+		return false, errors.Errorf(`orgId %s is not part of the network`, orgId)
 	}
 
-	contextProvider:= m.sdk.Context(fabsdk.WithUser(orgInfo.AdminUserName), fabsdk.WithOrg(orgKey))
-
-	resMgmntClient, err:= resmgmt.New(contextProvider)
-	if err!= nil {
-		return false, errors.WithMessage(err, "unable to create resource mangement client")
+	clientContext := m.sdk.Context(fabsdk.WithOrg(creatorOrg.Name), fabsdk.WithUser(creatorOrg.AdminUserName))
+	resMgmtClient, err := resmgmt.New(clientContext)
+	if err != nil {
+		logger.Errorf("unable to obtain resource management client: %v", err)
+		return false, err
 	}
 
-	qResp, err:= resMgmntClient.QueryChannels(resmgmt.WithTargetEndpoints(peerKey), resmgmt.WithRetry(retry.DefaultResMgmtOpts))
-	if err!=nil{
-		return false,errors.WithMessage(err, "query for channels failed")
+	peers, ok := m.networkConfig.PeerByOrg[creatorOrg.Name]
+	if !ok {
+		logger.Errorf("org %s does not have any peers", orgId)
+		return false, errors.Errorf("org %s does not have any peers", orgId)
 	}
 
-	for _,chInfo:= range qResp.Channels {
-		if chInfo.ChannelId==channelId {
+	var targetPeer string
+	for _, v := range peers {
+		if v.IsEndrosingPeer {
+			targetPeer = v.Endpoint
+		}
+	}
+
+	chResp, err := resMgmtClient.QueryChannels(resmgmt.WithTargetEndpoints(targetPeer), resmgmt.WithRetry(retry.DefaultResMgmtOpts))
+	if err != nil {
+		logger.Errorf("error while querying channels: %v", err)
+		return false, err
+	}
+
+	for _, cInfo := range chResp.Channels {
+		if cInfo.ChannelId == chRequest.ChannelName {
 			return true, nil
 		}
-	}*/
+	}
 
 	return false, nil
 }
 
-func (m *FabricNetwork) CreateChannel(channelName string, orgs []string) error {
+func (m *FabricNetwork) CreateChannel(orgId string, chRequest common.CreateChannelRequest) error {
 
-	txFileName, err:= m.createChannelTx(channelName, orgs)
-	if err!=nil {
+	creatorOrg, ok := m.networkConfig.OrgByOrgId[orgId]
+	if !ok {
+		return errors.Errorf("orgID %s does not belong to this network")
+	}
+	txFileName, err := m.createChannelTx(orgId, chRequest)
+	if err != nil {
 		return err
 	}
 
-	fmt.Println(txFileName)
+	mspClient, err := msp.New(m.sdk.Context(), msp.WithOrg(creatorOrg.Name))
+	if err != nil {
+		return errors.WithMessage(err, "unable to obtain msp client")
+	}
+
+	adminIdentity, err := mspClient.GetSigningIdentity(creatorOrg.AdminUserName)
+	if err != nil {
+		return errors.WithMessage(err, "unable to obtain admin identity")
+	}
+
+	req := resmgmt.SaveChannelRequest{
+		ChannelID:         chRequest.ChannelName,
+		ChannelConfigPath: txFileName,
+		SigningIdentities: []mspctx.SigningIdentity{adminIdentity},
+	}
+
+	clientContext := m.sdk.Context(fabsdk.WithUser(creatorOrg.AdminUserName), fabsdk.WithOrg(creatorOrg.Name))
+	resMgmtClient, err := resmgmt.New(clientContext)
+	if err != nil {
+		return errors.WithMessage(err, "unable to obtain resource nangement client")
+	}
+
+	saveRes, err := resMgmtClient.SaveChannel(req, resmgmt.WithOrdererEndpoint(m.networkConfig.OrderersInfo[0].Endpoint))
+
+	if err != nil {
+		logger.Error("save channel failed")
+		return errors.WithMessage(err, "error while saving channel")
+	}
+
+	logger.Infof("channel with channel id %v created successfully. TxID: %v", chRequest.ChannelName, saveRes.TransactionID)
+
+	// now join the channel
+	err = resMgmtClient.JoinChannel(chRequest.ChannelName, resmgmt.WithRetry(retry.DefaultResMgmtOpts), resmgmt.WithOrdererEndpoint(m.networkConfig.OrderersInfo[0].Endpoint))
+
+	logger.Infof("successfully added orgs to channel %s", chRequest.ChannelName)
+
+	os.Remove(txFileName)
 
 	return nil
 }
 
-func (m *FabricNetwork) createChannelTx(channelName string, orgs []string) (string, error) {
+func (m *FabricNetwork) createChannelTx(orgId string, chRequest common.CreateChannelRequest) (string, error) {
 
-	chOrgs:= []blockchainconfig.ChannelOrg{}
-	// add the first orderers by default
-	for _, o:= range m.networkConfig.OrgsInfo {
-		if o.IsOrderer {
-			chOrgs = append(chOrgs, blockchainconfig.ChannelOrg{
-				Name: o.Name,
-				IsOrderer:true,
-				Endpoint:o.Endpoint,
-			})
-		}
+	channelTxHelper := blockchainconfig.NewChannelTxConfigHelper()
+	err := channelTxHelper.CreateChannelTxObject(m.networkConfig, chRequest)
+	if err != nil {
+		return "", err
 	}
 
-	for _,o:= range orgs {
-		org, ok:= m.networkConfig.OrgsByName[o]
-		if ok && !org.IsOrderer {
-			peers:= []string{}
-			for _,p:= range m.networkConfig.PeersInfo {
-				if p.OrgName==org.Name {
-					peers = append(peers, p.Endpoint)
-				}
-			}
-			chOrgs = append(chOrgs, blockchainconfig.ChannelOrg{
-				Name: org.Name,
-				IsOrderer: false,
-				AnchorPeers: peers,
-				Endpoint:"",
-			})
-		}
-	}
-
-	channelTxHelper:= blockchainconfig.NewChannelTxConfigHelper()
-	err:= channelTxHelper.CreateChannelTxObject(m.networkConfig,"testchannel", chOrgs, "orderer.sivatech.com" )
-	if err!=nil {
-		return "","",err
-	}
-
-	exePath:= pathUtil.GetExecutablePath()
-	txFileName:= filepath.Join(exePath, "channel-artifacts", channelName+".pb")
-	gbFileName:= filepath.Join(exePath, "channel-artifacts", channelName+"_genesis.block")
+	exePath := pathUtil.GetExecutablePath()
+	txFileName := filepath.Join(exePath, "channel-artifacts", chRequest.ChannelName+".pb")
+	//gbFileName:= filepath.Join(exePath, "channel-artifacts", channelName+"_genesis.block")
 
 	pathUtil.EnsureDirectory(exePath, "channel-artifacts")
 
-	err = channelTxHelper.CreateConfigurationBlocks(txFileName, gbFileName)
-	if err!=nil {
-		fmt.Println(err.Error())
-		return "","",err
+	err = channelTxHelper.CreateConfigurationBlocks(txFileName)
+	if err != nil {
+		logger.Error("error while trying to create channel configuration block")
+		return "", err
 	}
 
-	return txFileName, gbFileName, nil
+	return txFileName, nil
 
 }

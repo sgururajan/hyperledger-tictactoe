@@ -32,16 +32,16 @@ type FabNetworkConfiguration struct {
 	CAs                   map[string]FabCAConfig
 	SecurityConfiguration *FabSecurityConfiguration
 	OrgsByName            map[string]*OrgInfo
-	PeersByEndpoint       map[string]*PeerInfo
-	OrderersByEndpoint    map[string]*OrdererInfo
 	OrgsInfo              []*OrgInfo
 	PeersInfo             []*PeerInfo
 	OrderersInfo          []*OrdererInfo
 	isSystemCertPool      bool
-	//networkConfig    fab.NetworkConfig
-	tlsCertPool  fab.CertPool
-	ClientConfig *FabClientConfig
-	rwLock       sync.Mutex
+	tlsCertPool           fab.CertPool
+	ClientConfig          *FabClientConfig
+	rwLock                sync.Mutex
+	PeerByOrg             map[string][]*PeerInfo
+	OrgByOrgId            map[string]*OrgInfo
+	Consortiums           map[string][]string
 }
 
 type OrdererInfo struct {
@@ -154,14 +154,18 @@ func newFabPeerConfiguration(peerConfig PeerConfiguration) fab.PeerConfig {
 }
 
 func NewFabNetworkConfigurationFromConfig(config NetworkConfiguration) *FabNetworkConfiguration {
-	return NewFabNetworkConfiguration(config.Name,
+	fabConfig := NewFabNetworkConfiguration(config.Name,
 		config.CAConfiguration,
 		config.OrderersConfiguration,
 		config.PeersConfiguration,
-		config.OrganizationsConfiguration,
+		config.Organizations,
 		config.ChannelsConfiguration,
 		config.ClientConfiguration,
 		config.SecurityConfiguration)
+
+	fabConfig.Consortiums = config.Consortiums
+
+	return fabConfig
 }
 
 // NewFabNetworkConfiguration - creates new instance of FabNetworkConfiguration
@@ -169,7 +173,7 @@ func NewFabNetworkConfiguration(name string,
 	caConfig map[string]CAConfiguration,
 	ordererConfig map[string]OrdererConfiguration,
 	peerConfig map[string]PeerConfiguration,
-	orgConfig map[string]OrganizationConfiguration,
+	orgConfig map[string]OrganizationInfo,
 	chConfig map[string]ChannelConfiguration,
 	clientConfig ClientConfiguration,
 	securityConfig SecurityConfiguration) *FabNetworkConfiguration {
@@ -189,8 +193,8 @@ func NewFabNetworkConfiguration(name string,
 	result.PeersInfo = []*PeerInfo{}
 	result.OrderersInfo = []*OrdererInfo{}
 	result.OrgsByName = make(map[string]*OrgInfo)
-	result.PeersByEndpoint=make(map[string]*PeerInfo)
-	result.OrderersByEndpoint=make(map[string]*OrdererInfo)
+	result.OrgByOrgId = make(map[string]*OrgInfo)
+	result.PeerByOrg = make(map[string][]*PeerInfo)
 
 	for k, v := range ordererConfig {
 		result.Orderers[k] = newFabOrdererConfiguration(v)
@@ -203,25 +207,28 @@ func NewFabNetworkConfiguration(name string,
 	for k, v := range orgConfig {
 		result.Organizations[k] = newFabOrgsConfiguration(v)
 
-		orgInfo:= &OrgInfo{
+		orgInfo := &OrgInfo{
 			Name:          k,
 			Endpoint:      k,
-			MSPID:         v.MSPID,
+			MSPID:         v.Configuration.MSPID,
 			AdminUserName: "Admin",
-			IsPrimary:     v.IsPrimary,
-			MSPDir:        v.MSPDir,
-			IsOrderer:     v.IsOrderer,
+			IsPrimary:     v.Configuration.IsPrimary,
+			MSPDir:        v.Configuration.MSPDir,
+			IsOrderer:     v.Configuration.IsOrderer,
 		}
-		result.OrgsInfo = append(result.OrgsInfo, orgInfo)
-		result.OrgsByName[k]=orgInfo
 
-		for _, pv := range v.Peers {
-			peerInfo:= &PeerInfo{
+		result.OrgByOrgId[v.OrgID] = orgInfo
+		result.OrgsByName[v.Name] = orgInfo
+		result.OrgsInfo = append(result.OrgsInfo, orgInfo)
+
+		for _, pv := range v.Configuration.Peers {
+			peerInfo := &PeerInfo{
 				Endpoint: pv,
-				OrgName:  k,
+				OrgName:  v.Name,
 			}
+
 			result.PeersInfo = append(result.PeersInfo, peerInfo)
-			result.PeersByEndpoint[pv]=peerInfo
+			result.PeerByOrg[v.Name] = append(result.PeerByOrg[v.Name], peerInfo)
 		}
 	}
 
@@ -271,14 +278,23 @@ func getPortFromUrl(url string) uint32 {
 	return 0
 }
 
-func newFabOrgsConfiguration(orgConfig OrganizationConfiguration) fab.OrganizationConfig {
+func newFabOrgsConfiguration(orgConfig OrganizationInfo) fab.OrganizationConfig {
+	return fab.OrganizationConfig{
+		MSPID:      orgConfig.Configuration.MSPID,
+		CryptoPath: orgConfig.Configuration.CryptoPath,
+		Peers:      orgConfig.Configuration.Peers,
+		CertificateAuthorities: orgConfig.Configuration.CertificateAuthorities,
+	}
+}
+
+/*func newFabOrgsConfiguration(orgConfig OrganizationConfiguration) fab.OrganizationConfig {
 	return fab.OrganizationConfig{
 		MSPID:      orgConfig.MSPID,
 		CryptoPath: orgConfig.CryptoPath,
 		Peers:      orgConfig.Peers,
 		CertificateAuthorities: orgConfig.CertificateAuthorities,
 	}
-}
+}*/
 
 func newFabChannelConfig(chConfig ChannelConfiguration) fab.ChannelEndpointConfig {
 	config := fab.ChannelEndpointConfig{
@@ -361,7 +377,7 @@ var defaultTimeOutTypes = map[fab.TimeoutType]time.Duration{
 
 func getGRPCOptions(opts GRPCOptions) map[string]interface{} {
 	return map[string]interface{}{
-		"ssl-target-Name-override": opts.SSLTargetNameOveride,
+		"ssl-target-name-override": opts.SSLTargetNameOveride,
 		"keep-alive-time":          opts.KeepAliveTime,
 		"keep-alive-timeout":       opts.KeepAliveTimeOut,
 		"keep-alive-permit":        opts.KeepAlivePermit,

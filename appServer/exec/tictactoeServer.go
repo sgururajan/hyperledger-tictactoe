@@ -8,8 +8,8 @@ import (
 	"io/ioutil"
 	"github.com/sgururajan/hyperledger-tictactoe/appServer/networkHandlers"
 	"github.com/cloudflare/cfssl/log"
-	"github.com/sgururajan/hyperledger-tictactoe/fabnetwork/entities"
 	"github.com/spf13/viper"
+	"github.com/sgururajan/hyperledger-tictactoe/fabnetwork/entities"
 )
 
 var networksDbFile="networks.json"
@@ -38,6 +38,41 @@ func main() {
 
 	defer networkHandler.Close()
 
+	testNetwork(networkHandler)
+
+}
+
+func setupRepository() database.NetworkRepository {
+	return database.NewNetworkFileRepository(networksDbFile)
+}
+
+func setupDefaultNetwork() error {
+	if _,err:= os.Stat(networksDbFile); err!= nil {
+		networks:= getDefaultNetwork()
+
+		cbytes, err:= json.MarshalIndent(networks, "", "\t")
+		if err!=nil {
+			return err
+		}
+
+		err = ioutil.WriteFile(networksDbFile, cbytes, os.ModePerm)
+		if err !=nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func getDefaultNetwork() map[string]database.Network {
+	dNetwork:= appServer.DefaultNetworkConfiguration()
+	networks:= make(map[string]database.Network)
+	networks[dNetwork.Name]=dNetwork
+
+	return networks
+}
+
+func testNetwork(networkHandler *networkHandlers.NetworkHandler) {
 	network, err:= networkHandler.GetNetwork("testNetwork")
 	if err != nil {
 		log.Errorf("error while getting network. err: %v", err)
@@ -75,34 +110,4 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func setupRepository() database.NetworkRepository {
-	return database.NewNetworkFileRepository(networksDbFile)
-}
-
-func setupDefaultNetwork() error {
-	if _,err:= os.Stat(networksDbFile); err!= nil {
-		networks:= getDefaultNetwork()
-
-		cbytes, err:= json.MarshalIndent(networks, "", "\t")
-		if err!=nil {
-			return err
-		}
-
-		err = ioutil.WriteFile(networksDbFile, cbytes, os.ModePerm)
-		if err !=nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func getDefaultNetwork() map[string]database.Network {
-	dNetwork:= appServer.DefaultNetworkConfiguration()
-	networks:= make(map[string]database.Network)
-	networks[dNetwork.Name]=dNetwork
-
-	return networks
 }

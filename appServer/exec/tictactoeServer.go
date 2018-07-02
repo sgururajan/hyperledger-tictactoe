@@ -1,23 +1,23 @@
 package main
 
 import (
+	"encoding/json"
+	"github.com/cloudflare/cfssl/log"
 	"github.com/sgururajan/hyperledger-tictactoe/appServer"
 	"github.com/sgururajan/hyperledger-tictactoe/appServer/database"
-	"os"
-	"encoding/json"
-	"io/ioutil"
 	"github.com/sgururajan/hyperledger-tictactoe/appServer/networkHandlers"
-	"github.com/cloudflare/cfssl/log"
-	"github.com/spf13/viper"
 	"github.com/sgururajan/hyperledger-tictactoe/fabnetwork/entities"
+	"github.com/spf13/viper"
+	"io/ioutil"
+	"os"
 )
 
-var networksDbFile="networks.json"
+var networksDbFile = "networks.json"
 
 func main() {
 
 	viper.SetConfigFile("appsettings.json")
-	verr:= viper.ReadInConfig()
+	verr := viper.ReadInConfig()
 
 	if verr != nil {
 		log.Fatalf("error while reading config")
@@ -26,12 +26,12 @@ func main() {
 
 	log.Infof("appsetting - configTxGenToolsPath: %s", viper.GetString("configTxGenToolsPath"))
 
-	err:= setupDefaultNetwork()
-	if err!=nil {
+	err := setupDefaultNetwork()
+	if err != nil {
 		panic(err)
 	}
-	repo:= setupRepository()
-	networkHandler,err:= networkHandlers.NewNetworkHandler(repo)
+	repo := setupRepository()
+	networkHandler, err := networkHandlers.NewNetworkHandler(repo)
 	if err != nil {
 		panic(err)
 	}
@@ -49,16 +49,16 @@ func setupRepository() database.NetworkRepository {
 }
 
 func setupDefaultNetwork() error {
-	if _,err:= os.Stat(networksDbFile); err!= nil {
-		networks:= getDefaultNetwork()
+	if _, err := os.Stat(networksDbFile); err != nil {
+		networks := getDefaultNetwork()
 
-		cbytes, err:= json.MarshalIndent(networks, "", "\t")
-		if err!=nil {
+		cbytes, err := json.MarshalIndent(networks, "", "\t")
+		if err != nil {
 			return err
 		}
 
 		err = ioutil.WriteFile(networksDbFile, cbytes, os.ModePerm)
-		if err !=nil {
+		if err != nil {
 			return err
 		}
 	}
@@ -67,26 +67,26 @@ func setupDefaultNetwork() error {
 }
 
 func getDefaultNetwork() map[string]database.Network {
-	dNetwork:= appServer.DefaultNetworkConfiguration()
-	networks:= make(map[string]database.Network)
-	networks[dNetwork.Name]=dNetwork
+	dNetwork := appServer.DefaultNetworkConfiguration()
+	networks := make(map[string]database.Network)
+	networks[dNetwork.Name] = dNetwork
 
 	return networks
 }
 
 func testNetwork(networkHandler *networkHandlers.NetworkHandler) {
-	network, err:= networkHandler.GetNetwork("testNetwork")
+	network, err := networkHandler.GetNetwork("testNetwork")
 	if err != nil {
 		log.Errorf("error while getting network. err: %v", err)
 		os.Exit(0)
 	}
 
-	chReq:=entities.CreateChannelRequest{
+	chReq := entities.CreateChannelRequest{
 		ChannelName: "testchannel1",
 		OrganizationNames: []string{
 			"sivatech",
 		},
-		AnchorPeers: map[string][]string {
+		AnchorPeers: map[string][]string{
 			"sivatech": []string{
 				"peer0.tictactoe.sivatech.com",
 			},
@@ -100,11 +100,11 @@ func testNetwork(networkHandler *networkHandlers.NetworkHandler) {
 		panic(err)
 	}
 
-	ccRequest:= entities.InstallChainCodeRequest{
-		ChainCodeName:"sample",
-		ChainCodePath:"github.com/sgururajan/hyperledger-tictactoe/chaincodes/sample/",
+	ccRequest := entities.InstallChainCodeRequest{
+		ChainCodeName:    "sample",
+		ChainCodePath:    "github.com/sgururajan/hyperledger-tictactoe/chaincodes/sample/",
 		ChainCodeVersion: "0.0.4",
-		ChannelName: "testchannel",
+		ChannelName:      "testchannel",
 	}
 
 	err = network.InstallChainCode("sivatech", ccRequest)

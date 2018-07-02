@@ -1,0 +1,111 @@
+{
+	"testNetwork": {
+		"Name": "testNetwork",
+		"organizations": {
+			"sivatech": {
+				"id": "SivAtEcHoRgId",
+				"name": "sivatech",
+				"mspid": "TicTacToeMSP",
+				"peers": [
+					"peer0.tictactoe.sivatech.com",
+					"peer1.tictactoe.sivatech.com"
+				],
+				"cryptoPath": "peerOrganizations/tictactoe.sivatech.com/users/{username}@tictactoe.sivatech.com/msp",
+				"mspDir": "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/crypto-config/peerOrganizations/tictactoe.sivatech.com/msp",
+				"certificateAuthorities": [
+					"ca.sivatech.com"
+				],
+				"adminUser": "Admin"
+			}
+		},
+		"orderers": {
+			"sivatechordererorg": {
+				"name": "sivatechordererorg",
+				"url": "localhost:7050",
+				"grpcOptions": {
+					"allow-insecure": false,
+					"fail-fast": false,
+					"keep-alive-permit": false,
+					"keep-alive-time": 0,
+					"keep-alive-timeout": 20000000000,
+					"ssl-target-name-override": "orderer.sivatech.com"
+				},
+				"tlsCACertPath": "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/crypto-config/ordererOrganizations/sivatech.com/tlsca/tlsca.sivatech.com-cert.pem",
+				"mspid": "SivaTechOrdererMSP",
+				"cryptoPath": "ordererOrganizations/sivatech.com/users/{username}@sivatech.com/msp",
+				"mspDir": "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/crypto-config/ordererOrganizations/sivatech.com/msp",
+				"organization": "sivatech"
+			}
+		},
+		"peers": {
+			"peer0.tictactoe.sivatech.com": {
+				"url": "localhost:7051",
+				"eventUrl": "localhost:7053",
+				"endPoint": "peer0.tictactoe.sivatech.com",
+				"grpcOptions": {
+					"allow-insecure": false,
+					"fail-fast": false,
+					"keep-alive-permit": false,
+					"keep-alive-time": 0,
+					"keep-alive-timeout": 20000000000,
+					"ssl-target-name-override": "peer0.tictactoe.sivatech.com"
+				},
+				"tlsCertPath": "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/crypto-config/peerOrganizations/tictactoe.sivatech.com/tlsca/tlsca.tictactoe.sivatech.com-cert.pem",
+				"isEndrosingPeer": true,
+				"isChainCodePeer": true,
+				"canQueryLedger": true,
+				"eventSource": true,
+				"organization": "sivatech"
+			},
+			"peer1.tictactoe.sivatech.com": {
+				"url": "localhost:8051",
+				"eventUrl": "localhost:8053",
+				"endPoint": "peer1.tictactoe.sivatech.com",
+				"grpcOptions": {
+					"allow-insecure": false,
+					"fail-fast": false,
+					"keep-alive-permit": false,
+					"keep-alive-time": 0,
+					"keep-alive-timeout": 20000000000,
+					"ssl-target-name-override": "peer1.tictactoe.sivatech.com"
+				},
+				"tlsCertPath": "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/crypto-config/peerOrganizations/tictactoe.sivatech.com/tlsca/tlsca.tictactoe.sivatech.com-cert.pem",
+				"isEndrosingPeer": true,
+				"isChainCodePeer": true,
+				"canQueryLedger": true,
+				"eventSource": true,
+				"organization": "sivatech"
+			}
+		},
+		"certificateAuthority": {
+			"ca.sivatech.com": {
+				"url": "localhost:7054",
+				"tlsCertPath": "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/crypto-config/peerOrganizations/tictactoe.sivatech.com/ca/ca.tictactoe.sivatech.com-cert.pem",
+				"tlsCertClientPaths": {
+					"keyPath": "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/client-crypto/client-key.pem",
+					"certPath": "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/client-crypto/client-cert.pem"
+				},
+				"caName": "ca.sivatech.com",
+				"registrarCredential": {
+					"id": "admin",
+					"secret": "adminpw"
+				},
+				"cryptoConfigPath": "",
+				"organization": ""
+			}
+		},
+		"isSystemCertPool": false,
+		"securityConfiguration": {
+			"isEnabled": true,
+			"algorithm": "SHA2",
+			"level": 256,
+			"isSoftVerify": true,
+			"provider": "sw",
+			"providerLibPath": "",
+			"providerPin": "",
+			"providerLabel": "",
+			"keyStoragePath": "/tmp/msp/keystore"
+		},
+		"consortiums": null
+	}
+}

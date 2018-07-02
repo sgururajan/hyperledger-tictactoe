@@ -1,4 +1,4 @@
-package pathUtil
+package utils
 
 import (
 	"go/build"

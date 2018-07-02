@@ -1,10 +1,10 @@
-package common
+package utils
 
 import (
+	"strings"
 	"fmt"
 	"net/url"
 	"strconv"
-	"strings"
 )
 
 func GetPortFromUrl(urlStr string) uint32 {
@@ -27,24 +27,4 @@ func GetPortFromUrl(urlStr string) uint32 {
 	}
 
 	return uint32(portUInt64)
-}
-
-func HasStringKey(dict map[string]interface{}, consName string) bool {
-	for k, _ := range dict {
-		if k == consName {
-			return true
-		}
-	}
-
-	return false
-}
-
-func HasConsortium(dict map[string][]string, consName string) bool {
-	for k, _ := range dict {
-		if k == consName {
-			return true
-		}
-	}
-
-	return false
 }

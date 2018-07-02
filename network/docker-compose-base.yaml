@@ -38,13 +38,11 @@ services:
       - CORE_PEER_GOSSIP_BOOTSTRAP=peer1.tictactoe.sivatech.com:7051
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.tictactoe.sivatech.com:7051
       - CORE_PEER_LOCALMSPID=TicTacToeMSP
-      - GOPATH=/opt/gopath
     volumes:
       - /var/run/:/host/var/run/
       - ./crypto-config/peerOrganizations/tictactoe.sivatech.com/peers/peer0.tictactoe.sivatech.com/msp:/etc/hyperledger/fabric/msp
       - ./crypto-config/peerOrganizations/tictactoe.sivatech.com/peers/peer0.tictactoe.sivatech.com/tls:/etc/hyperledger/fabric/tls
       - peer0.tictactoe.sivatech.com:/opt/gopath/src/chaincode/input
-      - ../server/chaincode:/opt/gopath/src/chaincode/input
     ports:
       - 7051:7051
       - 7053:7053
@@ -60,13 +58,11 @@ services:
       - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.tictactoe.sivatech.com:7051
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer1.tictactoe.sivatech.com:7051
       - CORE_PEER_LOCALMSPID=TicTacToeMSP
-      - GOPATH=/opt/gopath
     volumes:
       - /var/run/:/host/var/run/
       - ./crypto-config/peerOrganizations/tictactoe.sivatech.com/peers/peer1.tictactoe.sivatech.com/msp:/etc/hyperledger/fabric/msp
       - ./crypto-config/peerOrganizations/tictactoe.sivatech.com/peers/peer1.tictactoe.sivatech.com/tls:/etc/hyperledger/fabric/tls
       - peer1.tictactoe.sivatech.com:/opt/gopath/src/chaincode/input
-      - ../server/chaincode:/opt/gopath/src/chaincode/input
     ports:
       - 8051:7051
       - 8053:7053

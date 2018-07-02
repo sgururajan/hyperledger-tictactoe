@@ -40,6 +40,8 @@ func main() {
 
 	testNetwork(networkHandler)
 
+	log.Info("tictactoe server signing off")
+
 }
 
 func setupRepository() database.NetworkRepository {

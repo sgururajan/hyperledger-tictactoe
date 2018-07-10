@@ -6,6 +6,7 @@ import (
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/protos/peer"
 	"strconv"
+	"strings"
 )
 
 func main() {
@@ -48,7 +49,7 @@ type GameIdCounter struct {
 }
 
 type TictactoeGameResponse struct {
-	TxId string
+	TxId    string
 	Payload interface{}
 }
 
@@ -61,9 +62,18 @@ func (m *TictactoeGame) Init(stub shim.ChaincodeStubInterface) peer.Response {
 
 func (m *TictactoeGame) Invoke(stub shim.ChaincodeStubInterface) peer.Response {
 	function, args := stub.GetFunctionAndParameters()
-
-	if function == "creategame" {
+	function = strings.ToLower(function)
+	switch function {
+	case "creategame":
 		return m.newGame(stub, args)
+	case "getgameslist":
+		return m.getGamesList(stub, args)
+	case "getallgames":
+		return m.getAllGames(stub)
+	case "joingame":
+		return m.joinGame(stub, args)
+	default:
+		return shim.Error("invalid invoke method " + function)
 	}
 
 	return shim.Success(nil)
@@ -88,12 +98,68 @@ func (m *TictactoeGame) newGame(stub shim.ChaincodeStubInterface, args []string)
 
 	stub.PutState(gameKeyPrefix+string(gameId), gameBytes)
 
-	response,err:= generateResponse(stub.GetTxID(), gameId)
+	response, err := generateResponse(stub.GetTxID(), gameId)
 	if err != nil {
 		return shim.Error(errorMessage(err))
 	}
 
 	return shim.Success(response)
+}
+
+func (m *TictactoeGame) getGamesList(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+	if len(args) < 2 {
+		return shim.Error("not enough arguments. expected at least 2")
+	}
+
+	pageIndex, err := strconv.Atoi(args[0])
+	if err != nil {
+		return shim.Error(errorWithMessage("invalid page index (args[0])", err))
+	}
+
+	pageSize, err := strconv.Atoi(args[1])
+	if err != nil {
+		return shim.Error(errorWithMessage("invalid page size (args[1])", err))
+	}
+
+	startKey := string((pageIndex - 1) * pageSize)
+	endKey := string(((pageIndex - 1) * pageSize) + pageSize)
+
+	gameList, err := getGameListFromStartAndEndKey(startKey, endKey, stub)
+	if err != nil {
+		return shim.Error(errorMessage(err))
+	}
+
+	result, err := generateResponse(stub.GetTxID(), gameList)
+	if err != nil {
+		return shim.Error(errorMessage(err))
+	}
+	return shim.Success(result)
+}
+
+func (m *TictactoeGame) getAllGames(stub shim.ChaincodeStubInterface) peer.Response {
+	gameIdBytes, err := stub.GetState(gameIdCounterKey)
+	if err != nil {
+		return shim.Error(errorMessage(err))
+	}
+	counter, err := getGameIdCounterObjFromBytes(gameIdBytes)
+	if err != nil {
+		return shim.Error(errorMessage(err))
+	}
+
+	startKey := gameKeyPrefix + "1"
+	endKey := gameKeyPrefix + string(counter.CurrentValue)
+
+	gameList, err := getGameListFromStartAndEndKey(startKey, endKey, stub)
+	if err != nil {
+		return shim.Error(errorMessage(err))
+	}
+
+	result, err := generateResponse(stub.GetTxID(), gameList)
+	if err != nil {
+		return shim.Error(errorMessage(err))
+	}
+
+	return shim.Success(result)
 }
 
 func (m *TictactoeGame) joinGame(stub shim.ChaincodeStubInterface, args []string) peer.Response {
@@ -102,24 +168,24 @@ func (m *TictactoeGame) joinGame(stub shim.ChaincodeStubInterface, args []string
 		return shim.Error("not enough arguments. expected at least 2")
 	}
 
-	gameId,err:= strconv.Atoi(args[0])
+	gameId, err := strconv.Atoi(args[0])
 	if err != nil {
 		return shim.Error(errorWithMessage("gameid should be integer", err))
 	}
 
-	game:= Game{}
-	gameBytes, err:= stub.GetState(gameKeyPrefix+string(gameId))
+	game := Game{}
+	gameBytes, err := stub.GetState(gameKeyPrefix + string(gameId))
 	if err != nil {
 		return shim.Error(errorMessage(err))
 	}
 
-	err=json.Unmarshal(gameBytes, &game)
+	err = json.Unmarshal(gameBytes, &game)
 	if err != nil {
 		return shim.Error(errorWithMessage("unable to unmarshal game data", err))
 	}
 
-	otherPlayerName:= args[1]
-	if otherPlayerName=="" {
+	otherPlayerName := args[1]
+	if otherPlayerName == "" {
 		return shim.Error("joining player name cannot be empty.")
 	}
 
@@ -187,6 +253,49 @@ func (m *TictactoeGame) getNewGameId(stub shim.ChaincodeStubInterface) (int, err
 	return gameId, nil
 }
 
+func getGameListFromStartAndEndKey(startKey, endKey string, stub shim.ChaincodeStubInterface) ([]Game, error) {
+	gameList := []Game{}
+	query, err := stub.GetStateByRange(startKey, endKey)
+	if err != nil {
+		return nil, err
+	}
+
+	defer query.Close()
+
+	for query.HasNext() {
+		v, err := query.Next()
+		if err != nil {
+			return nil, err
+		}
+		game, err := getGameObjFromBytes(v.Value)
+		if err != nil {
+			return nil, err
+		}
+		gameList = append(gameList, game)
+	}
+
+	return gameList, nil
+}
+
+func getGameIdCounterObjFromBytes(input []byte) (GameIdCounter, error) {
+	counter := GameIdCounter{}
+	err := json.Unmarshal(input, &counter)
+	if err != nil {
+		return GameIdCounter{}, err
+	}
+	return counter, nil
+}
+
+func getGameObjFromBytes(input []byte) (Game, error) {
+	game := Game{}
+	err := json.Unmarshal(input, &game)
+	if err != nil {
+		return Game{}, err
+	}
+
+	return game, nil
+}
+
 func errorMessage(err error) string {
 	return fmt.Sprintf("%#v", err)
 }
@@ -196,12 +305,12 @@ func errorWithMessage(msg string, err error) string {
 }
 
 func generateResponse(txId string, payload interface{}) ([]byte, error) {
-	response:= TictactoeGameResponse{
-		TxId: txId,
-		Payload:payload,
+	response := TictactoeGameResponse{
+		TxId:    txId,
+		Payload: payload,
 	}
 
-	result, err:= json.Marshal(response)
+	result, err := json.Marshal(response)
 	if err != nil {
 		return nil, err
 	}

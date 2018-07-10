@@ -19,6 +19,7 @@ import (
 	"flag"
 	"github.com/sgururajan/hyperledger-tictactoe/utils"
 	"github.com/gorilla/handlers"
+	"github.com/sgururajan/hyperledger-tictactoe/fabnetwork"
 )
 
 var networksDbFile = "networks.json"
@@ -53,8 +54,12 @@ func main() {
 
 	defer networkHandler.Close()
 
-	testNetwork(networkHandler)
-	os.Exit(0)
+	t3Network, err:= networkHandler.GetNetwork("testnetwork")
+	if err != nil {
+		panic(err)
+	}
+
+	ensureTictactoeChannelAndChainCode(t3Network)
 
 	//enable cors
 	allowedHandlers:= handlers.AllowedHeaders([]string{"X-Requested-With"})
@@ -134,6 +139,45 @@ func getDefaultNetwork() map[string]database.Network {
 	return networks
 }
 
+func ensureTictactoeChannelAndChainCode(fabNetwork *fabnetwork.FabricNetwork) {
+	chReq:= entities.CreateChannelRequest{
+		ChannelName:"tictactoechannel",
+		OrganizationNames:[]string{
+			"org1",
+			"org2",
+		},
+		AnchorPeers: map[string][]string{
+			"org1": {
+				"peer0.org1.tictactoe.com",
+				"peer1.org1.tictactoe.com",
+			},
+			"org2": {
+				"peer0.org2.tictactoe.com",
+				"peer1.org2.tictactoe.com",
+			},
+		},
+		ConsortiumName:"tictactoechannelconsortium",
+	}
+
+	err:= fabNetwork.CreateChannel("org1", chReq)
+	if err != nil {
+		panic(err)
+	}
+
+	ccRequest := entities.InstallChainCodeRequest{
+		ChainCodeName:    "tictactoe",
+		ChainCodePath:    "github.com/sgururajan/hyperledger-tictactoe/chaincodes/tictactoe/",
+		ChainCodeVersion: "0.0.4",
+		ChannelName:      "tictactoechannel",
+	}
+
+	err = fabNetwork.InstallChainCode([]string{"org1", "org2"}, ccRequest)
+
+	if err != nil {
+		panic(err)
+	}
+}
+
 func testNetwork(networkHandler *networkHandlers.NetworkHandler) {
 	network, err := networkHandler.GetNetwork("testnetwork")
 	if err != nil {
@@ -156,7 +200,7 @@ func testNetwork(networkHandler *networkHandlers.NetworkHandler) {
 				"peer0.org2.tictactoe.com",
 			},
 		},
-		ConsortiumName: "TicTacToeConsortium",
+		ConsortiumName: "testconsortium",
 	}
 
 	err = network.CreateChannel("org1", chReq)

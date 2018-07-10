@@ -53,6 +53,7 @@ type Organization struct {
 	MSPDir                 string   `json:"mspDir"`
 	CertificateAuthorities []string `json:"certificateAuthorities"`
 	AdminUser              string   `json:"adminUser"`
+	IsOrderer              bool     `json:"isOrderer"`
 }
 
 type Peer struct {

@@ -1,21 +1,36 @@
 package main
 
 import (
+	"fmt"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/protos/peer"
-	"fmt"
 )
 
 func main() {
-	err:= shim.Start(new(Sample))
+	err := shim.Start(new(Sample))
 	if err != nil {
 		fmt.Println("error staring sample chain code")
 		fmt.Printf("%#v", err)
 	}
 }
 
-type Sample struct {
+type Cell struct {
+	Row   int
+	Col   int
+	Value string
+}
 
+type Game struct {
+	Id          int
+	IsCompleted bool
+	Winner      string
+	Player1     string
+	Player2     string
+	NextMoveBy  string
+	Cells       []Cell
+}
+
+type Sample struct {
 }
 
 func (m *Sample) Init(stub shim.ChaincodeStubInterface) peer.Response {

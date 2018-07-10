@@ -2,51 +2,89 @@
 version: '2'
 
 volumes:
-  orderer.sivatech.com:
-  peer0.tictactoe.sivatech.com:
-  peer1.tictactoe.sivatech.com:
+  orderer.tictactoe.com:
+  peer0.org1.tictactoe.com:
+  peer1.org1.tictactoe.com:
+  peer0.org2.tictactoe.com:
+  peer1.org2.tictactoe.com:
 
 networks:
   byfn:
 
 services:
-  ca0:
+  org1ca:
     image: hyperledger/fabric-ca:$IMAGE_TAG
     environment:
       - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
-      - FABRIC_CA_SERVER_CA_NAME=ca.sivatech.com
+      - FABRIC_CA_SERVER_CA_NAME=ca.org1.tictactoe.com
       - FABRIC_CA_SERVER_TLS_ENABLED=true
-      - FABRIC_CA_SERVER_TLS_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.tictactoe.sivatech.com-cert.pem
-      - FABRIC_CA_SERVER_TLS_KEYFILE=/etc/hyperledger/fabric-ca-server-config/e9abd3903d70a745aebc8a7c64204e26b6a6de55cc5fe46e6bc86726fa19e37f_sk
+      - FABRIC_CA_SERVER_TLS_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.org1.tictactoe.com-cert.pem
+      - FABRIC_CA_SERVER_TLS_KEYFILE=/etc/hyperledger/fabric-ca-server-config/66b291b61db3029354b665a85f04e7757eb6b71f4aa993284511c88a6a504d38_sk
     ports:
       - "7054:7054"
-    command: sh -c 'fabric-ca-server start --ca.certfile /etc/hyperledger/fabric-ca-server-config/ca.tictactoe.sivatech.com-cert.pem --ca.keyfile /etc/hyperledger/fabric-ca-server-config/e9abd3903d70a745aebc8a7c64204e26b6a6de55cc5fe46e6bc86726fa19e37f_sk -b admin:adminpw -d'
+    command: sh -c 'fabric-ca-server start --ca.certfile /etc/hyperledger/fabric-ca-server-config/ca.org1.tictactoe.com-cert.pem --ca.keyfile /etc/hyperledger/fabric-ca-server-config/66b291b61db3029354b665a85f04e7757eb6b71f4aa993284511c88a6a504d38_sk -b admin:adminpw -d'
     volumes:
-      - ./crypto-config/peerOrganizations/tictactoe.sivatech.com/ca/:/etc/hyperledger/fabric-ca-server-config
-    container_name: ca_peer_tictactoe
+      - ./crypto-config/peerOrganizations/org1.tictactoe.com/ca/:/etc/hyperledger/fabric-ca-server-config
+    container_name: ca.org1.tictactoe.com
     networks:
       - byfn
 
-  orderer.sivatech.com:
-    extends:
-      file: docker-compose-base.yaml
-      service: orderer.sivatech.com
-    container_name: orderer.sivatech.com
+  org2ca:
+    image: hyperledger/fabric-ca:$IMAGE_TAG
+    environment:
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+      - FABRIC_CA_SERVER_CA_NAME=ca.org2.tictactoe.com
+      - FABRIC_CA_SERVER_TLS_ENABLED=true
+      - FABRIC_CA_SERVER_TLS_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.org2.tictactoe.com-cert.pem
+      - FABRIC_CA_SERVER_TLS_KEYFILE=/etc/hyperledger/fabric-ca-server-config/679336c5860fdc1426fc905df97b1abd952b07e8bfe36ea6f315dd66c5f1cd2a_sk
+    ports:
+      - "8054:7054"
+    command: sh -c 'fabric-ca-server start --ca.certfile /etc/hyperledger/fabric-ca-server-config/ca.org2.tictactoe.com-cert.pem --ca.keyfile /etc/hyperledger/fabric-ca-server-config/679336c5860fdc1426fc905df97b1abd952b07e8bfe36ea6f315dd66c5f1cd2a_sk -b admin:adminpw -d'
+    volumes:
+      - ./crypto-config/peerOrganizations/org2.tictactoe.com/ca/:/etc/hyperledger/fabric-ca-server-config
+    container_name: ca.org2.tictactoe.com
     networks:
       - byfn
 
-  peer0.tictactoe.sivatech.com:
-    container_name: peer0.tictactoe.sivatech.com
+
+  orderer.tictactoe.com:
     extends:
       file: docker-compose-base.yaml
-      service: peer0.tictactoe.sivatech.com
+      service: orderer.tictactoe.com
+    container_name: orderer.tictactoe.com
     networks:
       - byfn
 
-  peer1.tictactoe.sivatech.com:
-    container_name: peer1.tictactoe.sivatech.com
+  peer0.org1.tictactoe.com:
+    container_name: peer0.org1.tictactoe.com
     extends:
       file: docker-compose-base.yaml
-      service: peer1.tictactoe.sivatech.com
+      service: peer0.org1.tictactoe.com
     networks:
       - byfn
+
+  peer1.org1.tictactoe.com:
+    container_name: peer1.org1.tictactoe.com
+    extends:
+      file: docker-compose-base.yaml
+      service: peer1.org1.tictactoe.com
+    networks:
+      - byfn
+
+
+  peer0.org2.tictactoe.com:
+    container_name: peer0.org2.tictactoe.com
+    extends:
+      file: docker-compose-base.yaml
+      service: peer0.org2.tictactoe.com
+    networks:
+      - byfn
+
+  peer1.org2.tictactoe.com:
+    container_name: peer1.org2.tictactoe.com
+    extends:
+      file: docker-compose-base.yaml
+      service: peer1.org2.tictactoe.com
+    networks:
+      - byfn
+

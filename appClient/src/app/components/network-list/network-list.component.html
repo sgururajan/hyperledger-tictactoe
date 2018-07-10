@@ -1,0 +1,29 @@
+<div class="flex-container container" fxLayout="row wrap" fxLayout.xs="column" fxLayoutAlign="start" fxLayoutGap="25px">
+  <div class="flex-item" *ngFor="let n of networks$ | async">
+      <paper-card heading="{{n.name}}" elevation=2>
+          <div class="card-content">            
+            <p>
+              <span>No of organizations: </span>
+              <span> {{n.noOfOrganizations}}</span>
+            </p>
+            <p>{{n.noOfPeers}}</p>
+            <p>{{n.noOfChannels}}</p>
+            <p>{{n.noOfBlocks}}</p>
+          </div>
+        </paper-card>
+  </div>
+  <!-- <div class="flex-item">
+    <paper-card>
+      <div class="card-content">
+        This is and anotther test network
+      </div>
+    </paper-card>
+  </div>
+  
+  <mat-select [(value)]="selected">
+      <mat-option *ngFor="let branch of branches$ | async" [value]="branch.key" (click)='selectBranch()'>
+        {{branch.id}}
+      </mat-option>
+    </mat-select> -->
+
+</div>

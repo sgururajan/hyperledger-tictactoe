@@ -90,10 +90,15 @@ function replacePrivateKey () {
 	cp docker-compose-e2e-template.yaml docker-compose-e2e.yaml
 
 	CURRENT_DIR=$PWD
-	cd crypto-config/peerOrganizations/tictactoe.sivatech.com/ca/
+	cd crypto-config/peerOrganizations/org1.tictactoe.com/ca/
 	PRIV_KEY=$(ls *_sk)
 	cd "$CURRENT_DIR"
-	sed $OPTS "s/CA1_PRIVATE_KEY/${PRIV_KEY}/g" docker-compose-e2e.yaml
+	sed $OPTS "s/ORG1CA_PRIVATE_KEY/${PRIV_KEY}/g" docker-compose-e2e.yaml
+
+	cd crypto-config/peerOrganizations/org2.tictactoe.com/ca/
+	PRIV_KEY=$(ls *_sk)
+	cd "$CURRENT_DIR"
+	sed $OPTS "s/ORG2CA_PRIVATE_KEY/${PRIV_KEY}/g" docker-compose-e2e.yaml
 
 	if [[ $ARCH == "Darwin" ]]; then
 		rm docker-compose-e2e.yaml
@@ -183,7 +188,7 @@ function generateChannelArtifacts () {
 	echo "##############################################"
 
 	set -x
-	configtxgen -profile OneOrgOrdererGenesis -outputBlock ./channel-artifacts/genesis.block
+	configtxgen -profile TwoOrgOrdererGenesis -outputBlock ./channel-artifacts/genesis.block
 	res=$?
 	set +x
 	if [ $res -ne 0 ]; then
@@ -191,33 +196,35 @@ function generateChannelArtifacts () {
 		exit 1
 	fi
 
-	echo
-	echo "#######################################################################"
-	echo "####### generate channel configuration transaction 'channel.tx' #######"
-	echo "#######################################################################"
+# channel will be created by the application
 
-	set -x
-	configtxgen -profile TicTacToeChannel -outputCreateChannelTx ./channel-artifacts/channel.tx -channelID $CHANNEL_NAME
-	res=$?
-	set +x
-	if [ $res -ne 0 ]; then
-		echo "failed to create channel transaction block"
-		exit 1
-	fi
-
-	echo
-	echo "########################################################"
-	echo "####### generate anchor peer update for sivatech #######"
-	echo "########################################################"
-
-	set -x
-	configtxgen -profile TicTacToeChannel -outputAnchorPeersUpdate ./channel-artifacts/TicTacToeMSPAnchors.tx -channelID $CHANNEL_NAME -asOrg TicTacToeMSP
-	res=$?
-	set +x
-	if [ $res -ne 0 ]; then
-		echo "failed to create achor peer update for sivatech"
-		exit 1
-	fi
+#	echo
+#	echo "#######################################################################"
+#	echo "####### generate channel configuration transaction 'channel.tx' #######"
+#	echo "#######################################################################"
+#
+#	set -x
+#	configtxgen -profile TicTacToeChannel -outputCreateChannelTx ./channel-artifacts/channel.tx -channelID $CHANNEL_NAME
+#	res=$?
+#	set +x
+#	if [ $res -ne 0 ]; then
+#		echo "failed to create channel transaction block"
+#		exit 1
+#	fi
+#
+#	echo
+#	echo "########################################################"
+#	echo "####### generate anchor peer update for sivatech #######"
+#	echo "########################################################"
+#
+#	set -x
+#	configtxgen -profile TicTacToeChannel -outputAnchorPeersUpdate ./channel-artifacts/TicTacToeMSPAnchors.tx -channelID $CHANNEL_NAME -asOrg TicTacToeMSP
+#	res=$?
+#	set +x
+#	if [ $res -ne 0 ]; then
+#		echo "failed to create achor peer update for sivatech"
+#		exit 1
+#	fi
 
 	echo
 }

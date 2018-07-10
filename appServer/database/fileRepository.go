@@ -20,12 +20,12 @@ func NewNetworkFileRepository(fName string) NetworkRepository {
 	var networks map[string]Network
 	cBytes, err:= ioutil.ReadFile(fName)
 	if err!=nil {
-		panic(err)
+		return nil
 	}
 
 	err = json.Unmarshal(cBytes, &networks)
 	if err!=nil {
-		panic(err)
+		return nil
 	}
 
 	repo.networks = networks
@@ -133,7 +133,7 @@ func (m *NetworkFileRepository) GetOrderers(networkName string) ([]entities.Orde
 		return nil, errors.Errorf("network %s does not exists", networkName)
 	}
 
-	result:= []entities.Orderer{}
+	var result []entities.Orderer
 	for _,v:= range network.Orderers {
 		result= append(result, getFabNetworkOrderer(v))
 	}
@@ -147,7 +147,7 @@ func (m *NetworkFileRepository) GetOrderersForOrgId(networkName, orgId string) (
 		return nil, errors.Errorf("network %s does not exists", networkName)
 	}
 
-	result:= []entities.Orderer{}
+	var result []entities.Orderer
 	for _,v:= range network.Orderers {
 		if v.Organization==orgId {
 			result= append(result, getFabNetworkOrderer(v))

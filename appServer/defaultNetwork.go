@@ -19,7 +19,7 @@ func DefaultNetworkConfiguration() database.Network {
 	securityConfig := getSecurityConfiguration()
 
 	return database.Network{
-		Name: "testNetwork",
+		Name: "testnetwork",
 		SecurityConfiguration: securityConfig,
 		CertificateAuthority:  caConfig,
 		IsSystemCertPool:      false,
@@ -46,77 +46,135 @@ func getSecurityConfiguration() database.SecurityConfiguration {
 
 func getDefaultCAConfig() map[string]database.CertificateAuthority {
 	return map[string]database.CertificateAuthority{
-		"ca.sivatech.com": {
+		"ca.org1.tictactoe.com": {
 			URL: fmt.Sprintf("%s:7054", defaultHost),
 			TLSCertClientPaths: database.TLSKeyPathPair{
 				KeyPath:  "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/client-crypto/client-key.pem",
 				CertPath: "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/client-crypto/client-cert.pem",
 			},
-			TLSCertPath: filepath.Join(cryptoConfigPath, "peerOrganizations/tictactoe.sivatech.com/ca/ca.tictactoe.sivatech.com-cert.pem"),
+			TLSCertPath: filepath.Join(cryptoConfigPath, "peerOrganizations/org1.tictactoe.com/ca/ca.org1.tictactoe.com-cert.pem"),
 			RegistrarCredential: database.Credential{
 				ID:     "admin",
 				Secret: "adminpw",
 			},
-			CAName: "ca.sivatech.com",
+			CAName: "ca.org1.tictactoe.com",
+		},
+		"ca.org2.tictactoe.com": {
+			URL: fmt.Sprintf("%s:8054", defaultHost),
+			TLSCertClientPaths: database.TLSKeyPathPair{
+				KeyPath:  "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/client-crypto/client-key.pem",
+				CertPath: "${GOPATH}/src/github.com/sgururajan/hyperledger-tictactoe/network/client-crypto/client-cert.pem",
+			},
+			TLSCertPath: filepath.Join(cryptoConfigPath, "peerOrganizations/org2.tictactoe.com/ca/ca.org2.tictactoe.com-cert.pem"),
+			RegistrarCredential: database.Credential{
+				ID:     "admin",
+				Secret: "adminpw",
+			},
+			CAName: "ca.org2.tictactoe.com",
 		},
 	}
 }
 
 func getDefaultPeersConfig() map[string]database.Peer {
 	return map[string]database.Peer{
-		"peer0.tictactoe.sivatech.com": {
+		"peer0.org1.tictactoe.com": {
 			URL:             fmt.Sprintf("%s:7051", defaultHost),
 			EventURL:        fmt.Sprintf("%s:7053", defaultHost),
-			GrpcOptions:     getDefaultGRPCOption("peer0.tictactoe.sivatech.com"),
-			TLSCertPath:     filepath.Join(cryptoConfigPath, "peerOrganizations/tictactoe.sivatech.com/tlsca/tlsca.tictactoe.sivatech.com-cert.pem"),
+			GrpcOptions:     getDefaultGRPCOption("peer0.org1.tictactoe.com"),
+			TLSCertPath:     filepath.Join(cryptoConfigPath, "peerOrganizations/org1.tictactoe.com/tlsca/tlsca.org1.tictactoe.com-cert.pem"),
 			IsEndrosingPeer: true,
 			IsChainCodePeer: true,
 			CanQueryLedger:  true,
 			EventSource:     true,
-			EndPoint:        "peer0.tictactoe.sivatech.com",
-			Organization:    "sivatech",
+			EndPoint:        "peer0.org1.tictactoe.com",
+			Organization:    "org1",
 		},
-		"peer1.tictactoe.sivatech.com": {
+		"peer1.org1.tictactoe.com": {
 			URL:             fmt.Sprintf("%s:8051", defaultHost),
 			EventURL:        fmt.Sprintf("%s:8053", defaultHost),
-			GrpcOptions:     getDefaultGRPCOption("peer1.tictactoe.sivatech.com"),
-			TLSCertPath:     filepath.Join(cryptoConfigPath, "peerOrganizations/tictactoe.sivatech.com/tlsca/tlsca.tictactoe.sivatech.com-cert.pem"),
+			GrpcOptions:     getDefaultGRPCOption("peer1.org1.tictactoe.com"),
+			TLSCertPath:     filepath.Join(cryptoConfigPath, "peerOrganizations/org1.tictactoe.com/tlsca/tlsca.org1.tictactoe.com-cert.pem"),
 			IsEndrosingPeer: true,
 			IsChainCodePeer: true,
 			CanQueryLedger:  true,
 			EventSource:     true,
-			EndPoint:        "peer1.tictactoe.sivatech.com",
-			Organization:    "sivatech",
+			EndPoint:        "peer1.org1.tictactoe.com",
+			Organization:    "org1",
+		},
+		"peer0.org2.tictactoe.com": {
+			URL:             fmt.Sprintf("%s:7055", defaultHost),
+			EventURL:        fmt.Sprintf("%s:7057", defaultHost),
+			GrpcOptions:     getDefaultGRPCOption("peer0.org2.tictactoe.com"),
+			TLSCertPath:     filepath.Join(cryptoConfigPath, "peerOrganizations/org2.tictactoe.com/tlsca/tlsca.org2.tictactoe.com-cert.pem"),
+			IsEndrosingPeer: true,
+			IsChainCodePeer: true,
+			CanQueryLedger:  true,
+			EventSource:     true,
+			EndPoint:        "peer0.org2.tictactoe.com",
+			Organization:    "org2",
+		},
+		"peer1.org2.tictactoe.com": {
+			URL:             fmt.Sprintf("%s:8055", defaultHost),
+			EventURL:        fmt.Sprintf("%s:8057", defaultHost),
+			GrpcOptions:     getDefaultGRPCOption("peer1.org2.tictactoe.com"),
+			TLSCertPath:     filepath.Join(cryptoConfigPath, "peerOrganizations/org2.tictactoe.com/tlsca/tlsca.org2.tictactoe.com-cert.pem"),
+			IsEndrosingPeer: true,
+			IsChainCodePeer: true,
+			CanQueryLedger:  true,
+			EventSource:     true,
+			EndPoint:        "peer1.org2.tictactoe.com",
+			Organization:    "org2",
 		},
 	}
 }
 
 func getDefaultOrganizationInfo() map[string]database.Organization {
 	return map[string]database.Organization{
-		"sivatech": {
-			CertificateAuthorities: []string{"ca.sivatech.com"},
-			Name:       "sivatech",
-			MSPID:      "TicTacToeMSP",
-			CryptoPath: "peerOrganizations/tictactoe.sivatech.com/users/{username}@tictactoe.sivatech.com/msp",
-			Peers:      []string{"peer0.tictactoe.sivatech.com", "peer1.tictactoe.sivatech.com"},
-			MSPDir:     filepath.Join(cryptoConfigPath, "peerOrganizations/tictactoe.sivatech.com/msp"),
-			ID:         "SivAtEcHoRgId",
+		"org1": {
+			CertificateAuthorities: []string{"ca.org1.tictactoe.com"},
+			Name:       "org1",
+			MSPID:      "Org1TicTacToeMSP",
+			CryptoPath: "peerOrganizations/org1.tictactoe.com/users/{username}@org1.tictactoe.com/msp",
+			Peers:      []string{"peer0.org1.tictactoe.com", "peer1.org1.tictactoe.com"},
+			MSPDir:     filepath.Join(cryptoConfigPath, "peerOrganizations/org1.tictactoe.com/msp"),
+			ID:         "org1",
 			AdminUser:  "Admin",
+			IsOrderer:  false,
+		},
+		"org2": {
+			CertificateAuthorities: []string{"ca.org2.tictactoe.com"},
+			Name:       "org2",
+			MSPID:      "Org2TicTacToeMSP",
+			CryptoPath: "peerOrganizations/org2.tictactoe.com/users/{username}@org2.tictactoe.com/msp",
+			Peers:      []string{"peer0.org2.tictactoe.com", "peer1.org2.tictactoe.com"},
+			MSPDir:     filepath.Join(cryptoConfigPath, "peerOrganizations/org2.tictactoe.com/msp"),
+			ID:         "org2",
+			AdminUser:  "Admin",
+			IsOrderer:  false,
+		},
+		"tictactoeordererorg": {
+			CertificateAuthorities: []string{"ca.org2.tictactoe.com"},
+			Name:       "tictactoeordererorg",
+			MSPID:      "tictactoeorderermsp",
+			CryptoPath: "ordererOrganizations/tictactoe.com/users/{username}@tictactoe.com/msp",
+			ID:         "tictactoeordererorg",
+			AdminUser:  "Admin",
+			IsOrderer:  true,
 		},
 	}
 }
 
 func getDefaultOrderersConfig() map[string]database.Orderer {
 	return map[string]database.Orderer{
-		"sivatechordererorg": {
-			Name:          "sivatechordererorg",
-			Organization:  "sivatech",
+		"ordererorg": {
+			Name:          "tictactoeordererorg",
+			Organization:  "ordererorg",
 			URL:           fmt.Sprintf("%s:7050", defaultHost),
-			GRPCOptions:   getDefaultGRPCOption("orderer.sivatech.com"),
-			TLSCACertPath: filepath.Join(cryptoConfigPath, "ordererOrganizations/sivatech.com/tlsca/tlsca.sivatech.com-cert.pem"),
-			MSPID:         "SivaTechOrdererMSP",
-			CryptoPath:    "ordererOrganizations/sivatech.com/users/{username}@sivatech.com/msp",
-			MSPDir:        filepath.Join(cryptoConfigPath, "ordererOrganizations/sivatech.com/msp"),
+			GRPCOptions:   getDefaultGRPCOption("orderer.tictactoe.com"),
+			TLSCACertPath: filepath.Join(cryptoConfigPath, "ordererOrganizations/tictactoe.com/tlsca/tlsca.tictactoe.com-cert.pem"),
+			MSPID:         "tictactoeorderermsp",
+			CryptoPath:    "ordererOrganizations/tictactoe.com/users/{username}@tictactoe.com/msp",
+			MSPDir:        filepath.Join(cryptoConfigPath, "ordererOrganizations/tictactoe.com/msp"),
 		},
 	}
 }

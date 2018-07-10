@@ -10,21 +10,36 @@ import (
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"os"
+	"github.com/gorilla/mux"
+	"github.com/sgururajan/hyperledger-tictactoe/appServer/apiHandlers"
+	"net/http"
+	"time"
+	"os/signal"
+	"context"
+	"flag"
+	"github.com/sgururajan/hyperledger-tictactoe/utils"
+	"github.com/gorilla/handlers"
 )
 
 var networksDbFile = "networks.json"
+var serverAddr = "0.0.0.0:4300"
 
 func main() {
+	var wait time.Duration
+	flag.DurationVar(&wait, "shutdown-timeout", 15 * time.Second, "duration for which server will gracefully wait for request to complete before shutting down")
+	flag.Parse()
+
+	logger:= utils.NewAppLogger("main", "")
 
 	viper.SetConfigFile("appsettings.json")
 	verr := viper.ReadInConfig()
 
 	if verr != nil {
-		log.Fatalf("error while reading config")
+		logger.Fatalf("error while reading config")
 		panic(verr)
 	}
 
-	log.Infof("appsetting - configTxGenToolsPath: %s", viper.GetString("configTxGenToolsPath"))
+	logger.Debugf("appsetting - configTxGenToolsPath: %s", viper.GetString("configTxGenToolsPath"))
 
 	err := setupDefaultNetwork()
 	if err != nil {
@@ -39,13 +54,58 @@ func main() {
 	defer networkHandler.Close()
 
 	testNetwork(networkHandler)
+	os.Exit(0)
 
+	//enable cors
+	allowedHandlers:= handlers.AllowedHeaders([]string{"X-Requested-With"})
+	allowedOrigins:= handlers.AllowedOrigins([]string{"*"})
+	allowedMethods:= handlers.AllowedMethods([]string{"GET", "POST", "OPTIONS", "PUT", "DELETE", "HEAD"})
+
+	//testNetwork(networkHandler)
+	router:= mux.NewRouter()
+	apiHandler:= apiHandlers.NewNetworkAPIHandler(repo, networkHandler)
+	apiHandler.RegisterRoutes(router.PathPrefix("/api").Subrouter())
+
+	router.Use(loggingMiddleWare)
+
+	server:= &http.Server{
+		Addr: serverAddr,
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout: 15 * time.Second,
+		IdleTimeout: 60 * time.Second,
+		Handler: handlers.CORS(allowedHandlers,allowedMethods, allowedOrigins)(router),
+	}
+
+	go func(){
+		logger.Infof("server starting and listening on %v", serverAddr)
+		if err= server.ListenAndServe(); err!= nil {
+			log.Fatal(err)
+		}
+	}()
+
+	c:= make(chan os.Signal,1)
+	signal.Notify(c, os.Interrupt)
+	<-c
+
+	ctx,cancel:= context.WithTimeout(context.Background(), wait)
+	defer cancel()
+
+	server.Shutdown(ctx)
 	log.Info("tictactoe server signing off")
-
+	os.Exit(0)
 }
 
 func setupRepository() database.NetworkRepository {
 	return database.NewNetworkFileRepository(networksDbFile)
+}
+
+func loggingMiddleWare(next http.Handler) http.Handler {
+	logger:= utils.NewAppLogger("http", "")
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start:=time.Now()
+		next.ServeHTTP(w,r)
+		logger.Debugf("%s\t%s\t%s", r.Method, r.RequestURI, time.Since(start))
+	})
 }
 
 func setupDefaultNetwork() error {
@@ -75,26 +135,31 @@ func getDefaultNetwork() map[string]database.Network {
 }
 
 func testNetwork(networkHandler *networkHandlers.NetworkHandler) {
-	network, err := networkHandler.GetNetwork("testNetwork")
+	network, err := networkHandler.GetNetwork("testnetwork")
 	if err != nil {
 		log.Errorf("error while getting network. err: %v", err)
 		os.Exit(0)
 	}
 
 	chReq := entities.CreateChannelRequest{
-		ChannelName: "testchannel1",
+		ChannelName: "testchannel",
 		OrganizationNames: []string{
-			"sivatech",
+			"org1",
+			"org2",
 		},
 		AnchorPeers: map[string][]string{
-			"sivatech": []string{
-				"peer0.tictactoe.sivatech.com",
+			"org1": {
+				"peer0.org1.tictactoe.com",
+				"peer1.org1.tictactoe.com",
+			},
+			"org2": {
+				"peer0.org2.tictactoe.com",
 			},
 		},
 		ConsortiumName: "TicTacToeConsortium",
 	}
 
-	err = network.CreateChannel("sivatech", chReq)
+	err = network.CreateChannel("org1", chReq)
 
 	if err != nil {
 		panic(err)
@@ -107,7 +172,7 @@ func testNetwork(networkHandler *networkHandlers.NetworkHandler) {
 		ChannelName:      "testchannel",
 	}
 
-	err = network.InstallChainCode("sivatech", ccRequest)
+	err = network.InstallChainCode([]string{"org1", "org2"}, ccRequest)
 
 	if err != nil {
 		panic(err)

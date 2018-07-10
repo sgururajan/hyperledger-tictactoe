@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"net/http"
+	"time"
 )
 
 func GetPortFromUrl(urlStr string) uint32 {
@@ -27,4 +29,13 @@ func GetPortFromUrl(urlStr string) uint32 {
 	}
 
 	return uint32(portUInt64)
+}
+
+func HttpRequestWithLogger(handler http.HandlerFunc, name string) http.HandlerFunc {
+	logger:= NewAppLogger("http-api", fmt.Sprintf("http[%s]", name))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){
+		start:= time.Now()
+		handler.ServeHTTP(w, r)
+		logger.Debugf("%s\t%s\t%s\t%s", r.Method, r.RequestURI, name, time.Since(start))
+	})
 }

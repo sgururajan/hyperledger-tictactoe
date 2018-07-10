@@ -54,6 +54,7 @@ func (m *NetworkHandler) bootFabricNetworks() error {
 	for k, _ := range networks {
 		m.fabNetworkProviders[k] = providers.NewFabNetworkProvider(k, m.repo)
 		m.fabNetworks[k], err = fabnetwork.NewFabricNetwork(getClientConfigurtion(),
+				k, //network name
 				fabnetwork.WithOrdererProvider(m.fabNetworkProviders[k]),
 				fabnetwork.WithOrganizationProvider(m.fabNetworkProviders[k]),
 				fabnetwork.WithCAProvider(m.fabNetworkProviders[k]),
@@ -62,6 +63,8 @@ func (m *NetworkHandler) bootFabricNetworks() error {
 		if err != nil {
 			return err
 		}
+
+		m.fabNetworks[k].Initialize()
 	}
 
 	return nil

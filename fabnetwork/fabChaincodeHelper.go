@@ -12,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sgururajan/hyperledger-tictactoe/fabnetwork/entities"
 	"os"
+	"github.com/sgururajan/hyperledger-tictactoe/domainModel"
+	"time"
 )
 
 type ChainCode struct {
@@ -83,6 +85,21 @@ func (m *FabricNetwork) HasChainCode(orgName string, ccRequet entities.InstallCh
 	return false, nil
 }
 
+func (m *FabricNetwork) HasChainCodeIgnoreVersion(orgName string, ccRequet entities.InstallChainCodeRequest) (bool, error) {
+	ccList, err := m.GetChainCodeList(orgName)
+	if err != nil {
+		return false, err
+	}
+
+	for _, v := range ccList {
+		if v.Name == ccRequet.ChainCodeName {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 func (m *FabricNetwork) installChainCodeForOrg(orgName string, ccRequest entities.InstallChainCodeRequest, installReq resmgmt.InstallCCRequest) error {
 	/*hasChainCode, err:= m.HasChainCode(orgName, ccRequest)
 	if err != nil {
@@ -129,6 +146,48 @@ func (m *FabricNetwork) installChainCodeForOrg(orgName string, ccRequest entitie
 	return nil
 }
 
+func (m *FabricNetwork) upgradeChainCodeForOrg(orgName string, ccRequest entities.InstallChainCodeRequest, installReq resmgmt.UpgradeCCRequest) error {
+	/*hasChainCode, err:= m.HasChainCode(orgName, ccRequest)
+	if err != nil {
+		return err
+	}
+
+	if hasChainCode {
+		return nil
+	}*/
+
+	creatorOrg, ok := m.orgsByName[orgName]
+	if !ok {
+		return errors.Errorf("org \"%s\" is not part of the network", orgName)
+	}
+
+	resMgmtClient, err := m.getResourceManagementClient(*creatorOrg)
+	if err != nil {
+		return errors.WithMessage(err, "unable to obtain resource mamangement client")
+	}
+
+	ePeers, err := m.providers.peerProvider.GetChainCodePeersForOrgId(orgName)
+	if err != nil {
+		return err
+	}
+
+	pEndPoints := []string{}
+	for _, v := range ePeers {
+		if !m.DoesPeerHasChainCode(v.EndPoint, ccRequest.ChainCodeName, ccRequest.ChainCodeVersion, resMgmtClient) {
+			pEndPoints = append(pEndPoints, v.EndPoint)
+		}
+	}
+
+	upgradeResp, err := resMgmtClient.UpgradeCC(ccRequest.ChannelName, installReq, resmgmt.WithTargetEndpoints(pEndPoints...), resmgmt.WithRetry(retry.DefaultResMgmtOpts))
+	if err != nil {
+		return errors.WithMessage(err, "error when installing chaincode")
+	}
+
+	log.Infof("chaincode \"%s\" upgraded succssfully. TxId: %#v", ccRequest.ChainCodeName, upgradeResp.TransactionID)
+
+	return nil
+}
+
 func (m *FabricNetwork) InstallChainCode(orgNames []string, ccRequest entities.InstallChainCodeRequest) error {
 	if len(orgNames)==0 {
 		return nil
@@ -148,6 +207,26 @@ func (m *FabricNetwork) InstallChainCode(orgNames []string, ccRequest entities.I
 		return errors.WithMessage(err, "error while packaging chaincode")
 	}
 
+	versionUpdate, err:= m.HasChainCodeIgnoreVersion(orgNames[0], ccRequest)
+	if err != nil {
+		return err
+	}
+
+	creatorOrg, ok := m.orgsByName[orgNames[0]]
+	if !ok {
+		return errors.Errorf("org \"%s\" is not part of the network", orgNames[0])
+	}
+
+	resMgmtClient, err := m.getResourceManagementClient(*creatorOrg)
+	ccSignature := []string{creatorOrg.MSPID}
+	/*for _, o:= range orgs {
+		ccSignature = append(ccSignature, o.MSPID)
+	}*/
+
+	//ccPolicy:= cauthdsl.SignedByAnyAdmin([]string{creatorOrg.MSPID})
+
+	ccPolicy := cauthdsl.SignedByAnyAdmin(ccSignature)
+
 	installReq := resmgmt.InstallCCRequest{
 		Name:    ccRequest.ChainCodeName,
 		Path:    ccRequest.ChainCodePath,
@@ -163,68 +242,122 @@ func (m *FabricNetwork) InstallChainCode(orgNames []string, ccRequest entities.I
 		}
 	}
 
-	creatorOrg, ok := m.orgsByName[orgNames[0]]
-	if !ok {
-		return errors.Errorf("org \"%s\" is not part of the network", orgNames[0])
+	if versionUpdate {
+		upgradeReq:= resmgmt.UpgradeCCRequest{
+			Name: ccRequest.ChainCodeName,
+			Version:ccRequest.ChainCodeVersion,
+			Path: ccRequest.ChainCodePath,
+			Args: [][]byte{},
+			Policy: ccPolicy,
+		}
+		// TODO: should we upgrade the chaincode by organization??? updating for one org updates chaincode in all peers
+		err = m.upgradeChainCodeForOrg(orgNames[0], ccRequest, upgradeReq)
+		if err != nil {
+			return err
+		}
+		/*for _,o:= range orgNames {
+
+		}*/
+
+		log.Infof("Chaincode \"%s\" upgraded to version %s", ccRequest.ChainCodeName, ccRequest.ChainCodeVersion)
+	} else {
+		initArg := [][]byte{[]byte("init")}
+
+		initResp, err := resMgmtClient.InstantiateCC(
+			ccRequest.ChannelName,
+			resmgmt.InstantiateCCRequest{
+				Version: ccRequest.ChainCodeVersion,
+				Name:    ccRequest.ChainCodeName,
+				Path:    ccRequest.ChainCodePath,
+				Policy:  ccPolicy,
+				Args:    initArg,
+			})
+
+		if err != nil {
+			return errors.WithMessage(err, "error when instantiating chain code")
+		}
+
+		log.Infof("chaincode instantiated and installed successfully. TxID: %s", initResp.TransactionID)
 	}
-	resMgmtClient, err := m.getResourceManagementClient(*creatorOrg)
-	ccSignature := []string{creatorOrg.MSPID}
-	/*for _, o:= range orgs {
-		ccSignature = append(ccSignature, o.MSPID)
-	}*/
-
-	//ccPolicy:= cauthdsl.SignedByAnyAdmin([]string{creatorOrg.MSPID})
-
-	ccPolicy := cauthdsl.SignedByAnyAdmin(ccSignature)
-	initArg := [][]byte{[]byte("init")}
-
-	initResp, err := resMgmtClient.InstantiateCC(
-		ccRequest.ChannelName,
-		resmgmt.InstantiateCCRequest{
-			Version: ccRequest.ChainCodeVersion,
-			Name:    ccRequest.ChainCodeName,
-			Path:    ccRequest.ChainCodePath,
-			Policy:  ccPolicy,
-			Args:    initArg,
-		})
-
-	if err != nil {
-		return errors.WithMessage(err, "error when instantiating chain code")
-	}
-
-	log.Infof("chaincode instantiated and installed successfully. TxID: %s", initResp.TransactionID)
 
 	return nil
 }
 
-func (m *FabricNetwork) ExecuteChainCode(orgName, channelName, chainCodeName, cmd string, endorsingPeers []string, args []string) error {
+func (m *FabricNetwork) ExecuteChainCode(orgName, channelName, chainCodeName string, endorsingPeers []string, cmd string, args ...string) (domainModel.ChainCodeResponse, error) {
+	response:= domainModel.ChainCodeResponse{}
 	creatorOrg, ok := m.orgsByName[orgName]
 	if !ok {
-		return errors.Errorf("org \"%s\" is not part of the network", orgName)
+		return response, errors.Errorf("org \"%s\" is not part of the network", orgName)
 	}
 
 	channelClient, err := m.getChannelClient(creatorOrg, channelName)
 	if err != nil {
-		return err
+		return response,err
 	}
 
-	chArgs := [][]byte{[]byte(cmd)}
-	chArgs = append(chArgs, convertToChannelArgs(args)...)
+	//chArgs := [][]byte{[]byte(cmd)}
+	chArgs := [][]byte{}
+	for _,v:= range args {
+		chArgs = append(chArgs, []byte(v))
+	}
+	//chArgs = append(chArgs, convertToChannelArgs(args)...)
 	resp, err := channelClient.Execute(channel.Request{
 		ChaincodeID: chainCodeName,
 		Args:        chArgs,
-		Fcn:         "invoke",
+		Fcn:         cmd,
 	}, channel.WithTargetEndpoints(endorsingPeers...), channel.WithRetry(retry.DefaultChannelOpts))
 	if err != nil {
-		return err
+		return response,err
 	}
 
 	allGood := areChannelResponsesGood(resp.Responses)
 	if !allGood {
-		return errors.Errorf("warning: did not get positive response from all the peers")
+		return response,errors.Errorf("warning: did not get positive response from all the peers")
 	}
 
-	return nil
+	response = generateChaincodeResponse(resp)
+	//resp.Proposal.
+	return response, nil
+}
+
+func generateChaincodeResponse(resp channel.Response) domainModel.ChainCodeResponse {
+	response:= domainModel.ChainCodeResponse{}
+	response.TxValidationCode = int32(resp.TxValidationCode)
+	response.Payload = resp.Payload
+	response.TxId = string(resp.TransactionID)
+	response.ChaincodeStatus = resp.ChaincodeStatus
+	response.TxProposalResponse = domainModel.TransactionProposal{
+		TxId:string(resp.Proposal.TxnID),
+		Payload: resp.Proposal.Payload,
+		Header: resp.Proposal.Header,
+	}
+
+	proposalResponses:= []domainModel.ProposalResponse{}
+	for _,pr:= range resp.Responses {
+		propResponse:= domainModel.ProposalResponse{
+			ChaincodeStatus: pr.ChaincodeStatus,
+			Version: pr.Version,
+			Status: pr.Status,
+			Endroser: pr.Endorser,
+			Signature:pr.Endorsement.Signature,
+			//TimeStamp: time.Unix(pr.Timestamp.Seconds, int64(pr.Timestamp.Nanos)),
+			Response: domainModel.Response{
+				Status: pr.Response.Status,
+				Payload:pr.Response.Payload,
+				Message:pr.Response.Message,
+			},
+		}
+
+		if pr.Timestamp!=nil {
+			propResponse.TimeStamp = time.Unix(pr.Timestamp.Seconds, int64(pr.Timestamp.Nanos))
+		}
+
+		proposalResponses = append(proposalResponses, propResponse)
+	}
+
+	response.ProposalResponses = proposalResponses
+
+	return response
 }
 
 func (m *FabricNetwork) QueryChainCode(orgName, channelName, chaincodeName, cmd string, targetPeers []string, args []string) ([]byte, error) {

@@ -71,6 +71,9 @@ func main() {
 	apiHandler:= apiHandlers.NewNetworkAPIHandler(repo, networkHandler)
 	apiHandler.RegisterRoutes(router.PathPrefix("/api").Subrouter())
 
+	t3ApiHandler:= apiHandlers.NewTictactoeApiHandler(repo, networkHandler)
+	t3ApiHandler.RegiterRoutes(router.PathPrefix("/api/innetwork").Subrouter())
+
 	router.Use(loggingMiddleWare)
 
 	server:= &http.Server{
@@ -140,6 +143,10 @@ func getDefaultNetwork() map[string]database.Network {
 }
 
 func ensureTictactoeChannelAndChainCode(fabNetwork *fabnetwork.FabricNetwork) {
+	logger:= utils.NewAppLogger("testnetwork/setup","")
+	logger.Infof("setting up channel and chaincode for %s", fabNetwork.Name)
+
+	logger.Info("Creating channel \"tictactoechannel\"")
 	chReq:= entities.CreateChannelRequest{
 		ChannelName:"tictactoechannel",
 		OrganizationNames:[]string{
@@ -156,7 +163,7 @@ func ensureTictactoeChannelAndChainCode(fabNetwork *fabnetwork.FabricNetwork) {
 				"peer1.org2.tictactoe.com",
 			},
 		},
-		ConsortiumName:"tictactoechannelconsortium",
+		ConsortiumName:"TicTacToeConsortium",
 	}
 
 	err:= fabNetwork.CreateChannel("org1", chReq)
@@ -164,10 +171,14 @@ func ensureTictactoeChannelAndChainCode(fabNetwork *fabnetwork.FabricNetwork) {
 		panic(err)
 	}
 
+	logger.Info("Channel created successfully")
+
+	logger.Info("Installing chain code \"tictactoe\"")
+
 	ccRequest := entities.InstallChainCodeRequest{
 		ChainCodeName:    "tictactoe",
 		ChainCodePath:    "github.com/sgururajan/hyperledger-tictactoe/chaincodes/tictactoe/",
-		ChainCodeVersion: "0.0.4",
+		ChainCodeVersion: "0.0.8",
 		ChannelName:      "tictactoechannel",
 	}
 
@@ -176,6 +187,9 @@ func ensureTictactoeChannelAndChainCode(fabNetwork *fabnetwork.FabricNetwork) {
 	if err != nil {
 		panic(err)
 	}
+
+	logger.Info("Chaincode installed successfully")
+	logger.Info("Basic prerequesties are installed. Server is good to go...")
 }
 
 func testNetwork(networkHandler *networkHandlers.NetworkHandler) {
@@ -212,7 +226,7 @@ func testNetwork(networkHandler *networkHandlers.NetworkHandler) {
 	ccRequest := entities.InstallChainCodeRequest{
 		ChainCodeName:    "sample",
 		ChainCodePath:    "github.com/sgururajan/hyperledger-tictactoe/chaincodes/sample/",
-		ChainCodeVersion: "0.0.4",
+		ChainCodeVersion: "0.0.5",
 		ChannelName:      "testchannel",
 	}
 

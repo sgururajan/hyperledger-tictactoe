@@ -24,6 +24,10 @@ const (
 	symbolO          = "O"
 )
 
+type GameIdCounter struct {
+	CurrentValue int
+}
+
 type Cell struct {
 	Row    int
 	Column int
@@ -44,13 +48,9 @@ type Game struct {
 	Cells             [9]Cell
 }
 
-type GameIdCounter struct {
-	CurrentValue int
-}
-
 type TictactoeGameResponse struct {
-	TxId    string
-	Payload interface{}
+	TxId  string `json:"txid,omitempty"`
+	Games []Game `json:"games"`
 }
 
 type TictactoeGame struct {
@@ -61,7 +61,11 @@ func (m *TictactoeGame) Init(stub shim.ChaincodeStubInterface) peer.Response {
 }
 
 func (m *TictactoeGame) Invoke(stub shim.ChaincodeStubInterface) peer.Response {
+	logger := shim.NewLogger("Invoke")
 	function, args := stub.GetFunctionAndParameters()
+
+	logger.Infof("received args: %#v", args)
+
 	function = strings.ToLower(function)
 	switch function {
 	case "creategame":
@@ -98,7 +102,7 @@ func (m *TictactoeGame) newGame(stub shim.ChaincodeStubInterface, args []string)
 
 	stub.PutState(gameKeyPrefix+string(gameId), gameBytes)
 
-	response, err := generateResponse(stub.GetTxID(), gameId)
+	response, err := generateResponse(stub.GetTxID(), []Game{game})
 	if err != nil {
 		return shim.Error(errorMessage(err))
 	}
@@ -107,22 +111,31 @@ func (m *TictactoeGame) newGame(stub shim.ChaincodeStubInterface, args []string)
 }
 
 func (m *TictactoeGame) getGamesList(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+	logger := shim.NewLogger("getGamesList")
 	if len(args) < 2 {
 		return shim.Error("not enough arguments. expected at least 2")
 	}
 
 	pageIndex, err := strconv.Atoi(args[0])
 	if err != nil {
-		return shim.Error(errorWithMessage("invalid page index (args[0])", err))
+		return shim.Error(errorWithMessage("invalid page index (args[0]). got "+args[0], err))
 	}
 
 	pageSize, err := strconv.Atoi(args[1])
 	if err != nil {
-		return shim.Error(errorWithMessage("invalid page size (args[1])", err))
+		return shim.Error(errorWithMessage("invalid page size (args[1]). got"+args[1], err))
 	}
 
-	startKey := string((pageIndex - 1) * pageSize)
-	endKey := string(((pageIndex - 1) * pageSize) + pageSize)
+	logger.Infof("received params pageIndex: %d, pageSize: %d", pageIndex, pageSize)
+	if pageIndex < 1 {
+		return shim.Error("pageIndex should be a positive integer greater than 0")
+	}
+
+	startKey := fmt.Sprintf("%s%d", gameKeyPrefix, (pageIndex-1)*pageSize)
+	endKey := fmt.Sprintf("%s%d", ((pageIndex-1)*pageSize)+pageSize)
+
+	logger.Infof("startKey: %s", startKey)
+	logger.Infof("endKey: %s", endKey)
 
 	gameList, err := getGameListFromStartAndEndKey(startKey, endKey, stub)
 	if err != nil {
@@ -304,10 +317,10 @@ func errorWithMessage(msg string, err error) string {
 	return fmt.Sprintf("%s. err: %#v", msg, err)
 }
 
-func generateResponse(txId string, payload interface{}) ([]byte, error) {
+func generateResponse(txId string, payload []Game) ([]byte, error) {
 	response := TictactoeGameResponse{
-		TxId:    txId,
-		Payload: payload,
+		TxId:  txId,
+		Games: payload,
 	}
 
 	result, err := json.Marshal(response)

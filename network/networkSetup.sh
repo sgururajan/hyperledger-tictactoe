@@ -286,7 +286,7 @@ do
 	esac
 done
 
-askProceed
+#askProceed
 
 if [ "${MODE}" == "generatecert" ]; then
 	generateCerts

@@ -8,12 +8,12 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fab/ccpackager/gopackager"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
-	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
 	"github.com/pkg/errors"
 	"github.com/sgururajan/hyperledger-tictactoe/fabnetwork/entities"
 	"os"
 	"github.com/sgururajan/hyperledger-tictactoe/domainModel"
 	"time"
+	"github.com/hyperledger/fabric-sdk-go/third_party/github.com/hyperledger/fabric/common/cauthdsl"
 )
 
 type ChainCode struct {
@@ -218,14 +218,33 @@ func (m *FabricNetwork) InstallChainCode(orgNames []string, ccRequest entities.I
 	}
 
 	resMgmtClient, err := m.getResourceManagementClient(*creatorOrg)
-	ccSignature := []string{creatorOrg.MSPID}
+	//ccSignature := []string{creatorOrg.MSPID}
 	/*for _, o:= range orgs {
 		ccSignature = append(ccSignature, o.MSPID)
 	}*/
 
 	//ccPolicy:= cauthdsl.SignedByAnyAdmin([]string{creatorOrg.MSPID})
+	orgs, err:= m.providers.orgProvider.GetOrganizations()
+	if err != nil {
+		return err
+	}
+	var peerIds []string
+	var orgsMspIds []string
+	for _,o:= range orgs {
+		if len(o.Peers)>0 {
+			orgsMspIds = append(orgsMspIds, o.MSPID)
+		}
+		peers, err:= m.providers.peerProvider.GetChainCodePeersForOrgId(o.Name)
+		if err != nil {
+			return err
+		}
+		for _, p:= range peers {
+			peerIds = append(peerIds, p.EndPoint)
+		}
+	}
 
-	ccPolicy := cauthdsl.SignedByAnyAdmin(ccSignature)
+	//ccPolicy := cauthdsl.SignedByAnyPeer(peerIds)
+	ccPolicy:= cauthdsl.SignedByAnyMember(orgsMspIds)
 
 	installReq := resmgmt.InstallCCRequest{
 		Name:    ccRequest.ChainCodeName,
@@ -300,12 +319,13 @@ func (m *FabricNetwork) ExecuteChainCode(orgName, channelName, chainCodeName str
 	for _,v:= range args {
 		chArgs = append(chArgs, []byte(v))
 	}
+
 	//chArgs = append(chArgs, convertToChannelArgs(args)...)
 	resp, err := channelClient.Execute(channel.Request{
 		ChaincodeID: chainCodeName,
 		Args:        chArgs,
 		Fcn:         cmd,
-	}, channel.WithTargetEndpoints(endorsingPeers...), channel.WithRetry(retry.DefaultChannelOpts))
+	}, channel.WithTargetEndpoints(endorsingPeers[0]), channel.WithRetry(retry.DefaultChannelOpts))
 	if err != nil {
 		return response,err
 	}

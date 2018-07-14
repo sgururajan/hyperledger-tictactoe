@@ -72,7 +72,7 @@ func main() {
 	apiHandler.RegisterRoutes(router.PathPrefix("/api").Subrouter())
 
 	t3ApiHandler:= apiHandlers.NewTictactoeApiHandler(repo, networkHandler)
-	t3ApiHandler.RegiterRoutes(router.PathPrefix("/api/innetwork").Subrouter())
+	t3ApiHandler.RegisterRoutes(router.PathPrefix("/api/innetwork").Subrouter())
 
 	router.Use(loggingMiddleWare)
 
@@ -178,7 +178,7 @@ func ensureTictactoeChannelAndChainCode(fabNetwork *fabnetwork.FabricNetwork) {
 	ccRequest := entities.InstallChainCodeRequest{
 		ChainCodeName:    "tictactoe",
 		ChainCodePath:    "github.com/sgururajan/hyperledger-tictactoe/chaincodes/tictactoe/",
-		ChainCodeVersion: "0.0.8",
+		ChainCodeVersion: "0.0.1",
 		ChannelName:      "tictactoechannel",
 	}
 

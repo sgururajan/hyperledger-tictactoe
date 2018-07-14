@@ -84,6 +84,8 @@ func (m *TictactoeGame) Invoke(stub shim.ChaincodeStubInterface) peer.Response {
 }
 
 func (m *TictactoeGame) newGame(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+	logger:= shim.NewLogger("newGame")
+
 	if len(args) < 1 {
 		return shim.Error("not enough arguments. expected at least 1")
 	}
@@ -100,7 +102,11 @@ func (m *TictactoeGame) newGame(stub shim.ChaincodeStubInterface, args []string)
 		return shim.Error(errorMessage(err))
 	}
 
-	stub.PutState(gameKeyPrefix+string(gameId), gameBytes)
+	logger.Infof("game created with id: %v", gameId)
+
+	stub.PutState(gameKeyPrefix+strconv.Itoa(gameId), gameBytes)
+
+	logger.Infof("updated game state with key %s", gameKeyPrefix+strconv.Itoa(gameId))
 
 	response, err := generateResponse(stub.GetTxID(), []Game{game})
 	if err != nil {
@@ -132,7 +138,7 @@ func (m *TictactoeGame) getGamesList(stub shim.ChaincodeStubInterface, args []st
 	}
 
 	startKey := fmt.Sprintf("%s%d", gameKeyPrefix, (pageIndex-1)*pageSize)
-	endKey := fmt.Sprintf("%s%d", ((pageIndex-1)*pageSize)+pageSize)
+	endKey := fmt.Sprintf("%s%d", gameKeyPrefix, ((pageIndex-1)*pageSize)+pageSize)
 
 	logger.Infof("startKey: %s", startKey)
 	logger.Infof("endKey: %s", endKey)

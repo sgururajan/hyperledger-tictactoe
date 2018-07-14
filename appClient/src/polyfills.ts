@@ -73,14 +73,8 @@ import 'core-js/es7/reflect';
  */
 import 'zone.js/dist/zone';  // Included with Angular CLI.
 
-/***************************************************************************************************
- * web components polyfills
- */
 
-// import '@webcomponents/webcomponentsjs'
 
 /***************************************************************************************************
  * APPLICATION IMPORTS
  */
-
- 

@@ -127,6 +127,22 @@ func (m *NetworkFileRepository) GetPeers(networkName string)([]entities.Peer, er
 	return result, nil
 }
 
+func (m *NetworkFileRepository) GetEndrosingPeersEndpoints(networkName string) ([]string, error) {
+	network,ok:= m.networks[networkName]
+	if !ok {
+		return nil, errors.Errorf("network %s does not exists", networkName)
+	}
+
+	result:= []string{}
+	for _,v:= range network.Peers {
+		if v.IsEndrosingPeer {
+			result = append(result, v.EndPoint)
+		}
+	}
+
+	return result,nil
+}
+
 func (m *NetworkFileRepository) GetOrderers(networkName string) ([]entities.Orderer, error){
 	network, ok:= m.networks[networkName]
 	if !ok {

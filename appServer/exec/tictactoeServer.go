@@ -19,6 +19,7 @@ import (
 	"flag"
 	"github.com/sgururajan/hyperledger-tictactoe/utils"
 	"github.com/gorilla/handlers"
+	"github.com/sgururajan/hyperledger-tictactoe/fabnetwork"
 )
 
 var networksDbFile = "networks.json"
@@ -53,8 +54,12 @@ func main() {
 
 	defer networkHandler.Close()
 
-	testNetwork(networkHandler)
-	os.Exit(0)
+	t3Network, err:= networkHandler.GetNetwork("testnetwork")
+	if err != nil {
+		panic(err)
+	}
+
+	ensureTictactoeChannelAndChainCode(t3Network)
 
 	//enable cors
 	allowedHandlers:= handlers.AllowedHeaders([]string{"X-Requested-With"})
@@ -65,6 +70,9 @@ func main() {
 	router:= mux.NewRouter()
 	apiHandler:= apiHandlers.NewNetworkAPIHandler(repo, networkHandler)
 	apiHandler.RegisterRoutes(router.PathPrefix("/api").Subrouter())
+
+	t3ApiHandler:= apiHandlers.NewTictactoeApiHandler(repo, networkHandler)
+	t3ApiHandler.RegisterRoutes(router.PathPrefix("/api/innetwork").Subrouter())
 
 	router.Use(loggingMiddleWare)
 
@@ -134,6 +142,56 @@ func getDefaultNetwork() map[string]database.Network {
 	return networks
 }
 
+func ensureTictactoeChannelAndChainCode(fabNetwork *fabnetwork.FabricNetwork) {
+	logger:= utils.NewAppLogger("testnetwork/setup","")
+	logger.Infof("setting up channel and chaincode for %s", fabNetwork.Name)
+
+	logger.Info("Creating channel \"tictactoechannel\"")
+	chReq:= entities.CreateChannelRequest{
+		ChannelName:"tictactoechannel",
+		OrganizationNames:[]string{
+			"org1",
+			"org2",
+		},
+		AnchorPeers: map[string][]string{
+			"org1": {
+				"peer0.org1.tictactoe.com",
+				"peer1.org1.tictactoe.com",
+			},
+			"org2": {
+				"peer0.org2.tictactoe.com",
+				"peer1.org2.tictactoe.com",
+			},
+		},
+		ConsortiumName:"TicTacToeConsortium",
+	}
+
+	err:= fabNetwork.CreateChannel("org1", chReq)
+	if err != nil {
+		panic(err)
+	}
+
+	logger.Info("Channel created successfully")
+
+	logger.Info("Installing chain code \"tictactoe\"")
+
+	ccRequest := entities.InstallChainCodeRequest{
+		ChainCodeName:    "tictactoe",
+		ChainCodePath:    "github.com/sgururajan/hyperledger-tictactoe/chaincodes/tictactoe/",
+		ChainCodeVersion: "0.0.1",
+		ChannelName:      "tictactoechannel",
+	}
+
+	err = fabNetwork.InstallChainCode([]string{"org1", "org2"}, ccRequest)
+
+	if err != nil {
+		panic(err)
+	}
+
+	logger.Info("Chaincode installed successfully")
+	logger.Info("Basic prerequesties are installed. Server is good to go...")
+}
+
 func testNetwork(networkHandler *networkHandlers.NetworkHandler) {
 	network, err := networkHandler.GetNetwork("testnetwork")
 	if err != nil {
@@ -156,7 +214,7 @@ func testNetwork(networkHandler *networkHandlers.NetworkHandler) {
 				"peer0.org2.tictactoe.com",
 			},
 		},
-		ConsortiumName: "TicTacToeConsortium",
+		ConsortiumName: "testconsortium",
 	}
 
 	err = network.CreateChannel("org1", chReq)
@@ -168,7 +226,7 @@ func testNetwork(networkHandler *networkHandlers.NetworkHandler) {
 	ccRequest := entities.InstallChainCodeRequest{
 		ChainCodeName:    "sample",
 		ChainCodePath:    "github.com/sgururajan/hyperledger-tictactoe/chaincodes/sample/",
-		ChainCodeVersion: "0.0.4",
+		ChainCodeVersion: "0.0.5",
 		ChannelName:      "testchannel",
 	}
 

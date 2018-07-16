@@ -13,9 +13,11 @@ import (
 )
 
 const (
-	channelName   = "tictactoechannel"
-	chainCodeName = "tictactoe"
-	invodeCmd     = "invoke"
+	channelName       = "tictactoechannel"
+	chainCodeName     = "tictactoe"
+	invodeCmd         = "invoke"
+	networkNameHeader = "X-hlt3-networkName"
+	orgNameHeader     = "X-hlt3-orgName"
 )
 
 type TictactoeApiHandler struct {
@@ -36,9 +38,16 @@ func (m *TictactoeApiHandler) RegisterRoutes(router *mux.Router) {
 	}
 }
 
+func getNetworkNameFromReqHeader(request *http.Request) string {
+	return request.Header.Get(networkNameHeader)
+}
+
+func getOrgNameFromReqHeader(request *http.Request) string {
+	return request.Header.Get(orgNameHeader);
+}
+
 func (m *TictactoeApiHandler) addGame(writer http.ResponseWriter, request *http.Request) {
-	vars := mux.Vars(request)
-	networkName := vars["network"]
+	networkName := getNetworkNameFromReqHeader(request)
 	if networkName == "" {
 		HandleServerError(writer, errors.New("empty network name"))
 		return
@@ -49,32 +58,22 @@ func (m *TictactoeApiHandler) addGame(writer http.ResponseWriter, request *http.
 		HandleServerError(writer, errors.WithMessage(err, "error getting fabric network instance"))
 		return
 	}
-
-	repoOrgs, err := m.repo.GetOrganizations(networkName)
-	if err != nil {
-		HandleServerError(writer, errors.WithMessage(err, "no organizations found for network "+networkName))
-		return
-	}
-	if len(repoOrgs) == 0 {
-		HandleServerError(writer, errors.New("no organizations found for network "+networkName))
-		return
-	}
-
 	// for now get the orgname from header
-	orgName := request.Header.Get("X-hlt3-orgName")
+	orgName := getOrgNameFromReqHeader(request)
 	if orgName == "" {
-		orgName = repoOrgs[0].Name
+		HandleServerError(writer, errors.New("orgname not found in header"))
+		return
 	}
 
-	payload,err:= m.getTicTacToeGameResponseFromChaincode(network, orgName, "creategame", orgName)
+	payload, err := m.getTicTacToeGameResponseFromChaincode(network, orgName, "creategame", orgName)
 	if err != nil {
 		HandleServerError(writer, err)
 		return
 	}
 
-	gameList:= payload.Games
-	writer.Header().Set("Content-Type", "application/json;charset=UTF-8")
-	err=json.NewEncoder(writer).Encode(gameList)
+	gameList := payload.Games
+	writer.Header().Set(contentTypeKey, contentTypeJsonValue)
+	err = json.NewEncoder(writer).Encode(gameList)
 	if err != nil {
 		HandleServerError(writer, err)
 	}
@@ -94,7 +93,7 @@ func (m *TictactoeApiHandler) getGameList(writer http.ResponseWriter, request *h
 		return
 	}
 
-	networkName := vars["network"]
+	networkName := getNetworkNameFromReqHeader(request)
 	if networkName == "" {
 		HandleServerError(writer, errors.New("empty network name"))
 		return
@@ -117,7 +116,7 @@ func (m *TictactoeApiHandler) getGameList(writer http.ResponseWriter, request *h
 	}
 
 	// for now get the orgname from header
-	orgName := request.Header.Get("X-hlt3-orgName")
+	orgName := getOrgNameFromReqHeader(request)
 	if orgName == "" {
 		orgName = repoOrgs[0].Name
 	}
@@ -128,11 +127,44 @@ func (m *TictactoeApiHandler) getGameList(writer http.ResponseWriter, request *h
 		return
 	}
 	gameList := payload.Games
-	writer.Header().Set("Content-Type", "application/json;charset=UTF-8")
+	writer.Header().Set(contentTypeKey, contentTypeJsonValue)
 	err = json.NewEncoder(writer).Encode(gameList)
 	if err != nil {
 		HandleServerError(writer, err)
 	}
+}
+
+func (m *TictactoeApiHandler) getAllGamesList(writer http.ResponseWriter, request *http.Request) {
+	networkName := getNetworkNameFromReqHeader(request)
+	if networkName == "" {
+		HandleServerError(writer, errors.New("empty network name"))
+		return
+	}
+
+	network, err := m.networkHandlers.GetNetwork(networkName)
+	if err != nil {
+		HandleServerError(writer, errors.WithMessage(err, "error getting fabric network instance"))
+		return
+	}
+
+	orgName := getOrgNameFromReqHeader(request)
+	if orgName == "" {
+		HandleServerError(writer, errors.New("org name not found in header"))
+		return
+	}
+
+	payload, err := m.getTicTacToeGameResponseFromChaincode(network, orgName, "getallgames")
+	if err != nil {
+		HandleServerError(writer, err)
+		return
+	}
+	gameList := payload.Games
+	writer.Header().Set(contentTypeKey, contentTypeJsonValue)
+	err = json.NewEncoder(writer).Encode(gameList)
+	if err != nil {
+		HandleServerError(writer, err)
+	}
+
 }
 
 func (m *TictactoeApiHandler) getTicTacToeGameResponseFromChaincode(network *fabnetwork.FabricNetwork, orgName, cmd string, args ...string) (domainModel.TictactoeGameResponse, error) {
@@ -158,6 +190,8 @@ func (m *TictactoeApiHandler) getTicTacToeGameResponseFromChaincode(network *fab
 		return result, err
 	}
 
+	payload.TxId = response.TxId
+
 	result = payload
 	return result, nil
 }
@@ -167,13 +201,19 @@ func (m *TictactoeApiHandler) getRoutes() []Route {
 		{
 			Method:      http.MethodGet,
 			Name:        "GetGameList",
-			Pattern:     "/getGameList/{network}/{pageindex}/{pagesize}",
+			Pattern:     "/getGameList/{pageindex}/{pagesize}",
 			HandlerFunc: m.getGameList,
+		},
+		{
+			Method:      http.MethodGet,
+			Name:        "GetAllGameList",
+			Pattern:     "/getAllGameList",
+			HandlerFunc: m.getAllGamesList,
 		},
 		{
 			Method:      http.MethodPost,
 			Name:        "AddGame",
-			Pattern:     "/addgame/{network}",
+			Pattern:     "/addgame",
 			HandlerFunc: m.addGame,
 		},
 	}

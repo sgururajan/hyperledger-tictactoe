@@ -57,6 +57,12 @@ type TictactoeGame struct {
 }
 
 func (m *TictactoeGame) Init(stub shim.ChaincodeStubInterface) peer.Response {
+	logger:= shim.NewLogger("init")
+	logger.Info("intializing tictactoe chaincode")
+	err:= m.initializeGameIdCounter(stub)
+	if err != nil {
+		logger.Errorf("error while intializing game id counter. Err: %#v", err)
+	}
 	return shim.Success(nil)
 }
 
@@ -156,25 +162,34 @@ func (m *TictactoeGame) getGamesList(stub shim.ChaincodeStubInterface, args []st
 }
 
 func (m *TictactoeGame) getAllGames(stub shim.ChaincodeStubInterface) peer.Response {
+	logger:= shim.NewLogger("getAllGames")
+	logger.Info("getAllGames method invoked")
 	gameIdBytes, err := stub.GetState(gameIdCounterKey)
 	if err != nil {
 		return shim.Error(errorMessage(err))
 	}
+	logger.Infof("gameIdCounter bytes: %#v", gameIdBytes)
+
 	counter, err := getGameIdCounterObjFromBytes(gameIdBytes)
 	if err != nil {
+		logger.Error(errorMessage(err))
 		return shim.Error(errorMessage(err))
 	}
 
 	startKey := gameKeyPrefix + "1"
-	endKey := gameKeyPrefix + string(counter.CurrentValue)
+	endKey := gameKeyPrefix + strconv.Itoa(counter.CurrentValue)
+
+	logger.Infof("getting games list with starting key: %s and ending key: %s", startKey, endKey)
 
 	gameList, err := getGameListFromStartAndEndKey(startKey, endKey, stub)
 	if err != nil {
+		logger.Error(errorMessage(err))
 		return shim.Error(errorMessage(err))
 	}
 
 	result, err := generateResponse(stub.GetTxID(), gameList)
 	if err != nil {
+		logger.Error(errorMessage(err))
 		return shim.Error(errorMessage(err))
 	}
 
@@ -250,6 +265,31 @@ func (m *TictactoeGame) createNewGame(initPlayer string, gameId int) Game {
 	}
 
 	return game
+}
+
+func (m *TictactoeGame) initializeGameIdCounter(stub shim.ChaincodeStubInterface) error {
+	gameIdCounterBytes, err := stub.GetState(gameIdCounterKey)
+	if err != nil {
+		return err
+	}
+
+	if gameIdCounterBytes==nil {
+		gameIdCounter:= GameIdCounter{
+			CurrentValue: 1,
+		}
+
+		stateBytes,err:= json.Marshal(gameIdCounter)
+		if err != nil {
+			return err
+		}
+
+		err=stub.PutState(gameIdCounterKey, stateBytes)
+		if err != nil {
+			return err
+		}
+	}
+
+	return  nil
 }
 
 func (m *TictactoeGame) getNewGameId(stub shim.ChaincodeStubInterface) (int, error) {

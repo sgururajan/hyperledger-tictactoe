@@ -62,17 +62,18 @@ func main() {
 	ensureTictactoeChannelAndChainCode(t3Network)
 
 	//enable cors
-	allowedHandlers:= handlers.AllowedHeaders([]string{"X-Requested-With"})
 	allowedOrigins:= handlers.AllowedOrigins([]string{"*"})
+	allowedHandlers:= handlers.AllowedHeaders([]string{"content-type", "X-Requested-With", "X-hlt3-networkName", "X-hlt3-orgName"})
 	allowedMethods:= handlers.AllowedMethods([]string{"GET", "POST", "OPTIONS", "PUT", "DELETE", "HEAD"})
 
 	//testNetwork(networkHandler)
 	router:= mux.NewRouter()
-	apiHandler:= apiHandlers.NewNetworkAPIHandler(repo, networkHandler)
-	apiHandler.RegisterRoutes(router.PathPrefix("/api").Subrouter())
 
 	t3ApiHandler:= apiHandlers.NewTictactoeApiHandler(repo, networkHandler)
 	t3ApiHandler.RegisterRoutes(router.PathPrefix("/api/innetwork").Subrouter())
+
+	apiHandler:= apiHandlers.NewNetworkAPIHandler(repo, networkHandler)
+	apiHandler.RegisterRoutes(router.PathPrefix("/api").Subrouter())
 
 	router.Use(loggingMiddleWare)
 

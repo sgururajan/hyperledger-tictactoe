@@ -1,0 +1,6 @@
+{
+  "productName": "tictactoe",
+  "services": {
+    "api": "http://localhost:4300"
+  }
+}

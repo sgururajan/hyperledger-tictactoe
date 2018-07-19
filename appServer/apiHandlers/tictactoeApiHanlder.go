@@ -23,12 +23,16 @@ const (
 type TictactoeApiHandler struct {
 	repo            database.NetworkRepository
 	networkHandlers *networkHandlers.NetworkHandler
+	broadcastMessage BroadcastMessage
 }
 
-func NewTictactoeApiHandler(repo database.NetworkRepository, nHandlers *networkHandlers.NetworkHandler) *TictactoeApiHandler {
+type BroadcastMessage func(string, interface{})
+
+func NewTictactoeApiHandler(repo database.NetworkRepository, nHandlers *networkHandlers.NetworkHandler, broadcastFunc BroadcastMessage) *TictactoeApiHandler {
 	return &TictactoeApiHandler{
 		repo:            repo,
 		networkHandlers: nHandlers,
+		broadcastMessage: broadcastFunc,
 	}
 }
 
@@ -72,6 +76,9 @@ func (m *TictactoeApiHandler) addGame(writer http.ResponseWriter, request *http.
 	}
 
 	gameList := payload.Games
+
+	m.broadcastMessage("gameadded", gameList)
+
 	writer.Header().Set(contentTypeKey, contentTypeJsonValue)
 	err = json.NewEncoder(writer).Encode(gameList)
 	if err != nil {
@@ -126,6 +133,7 @@ func (m *TictactoeApiHandler) getGameList(writer http.ResponseWriter, request *h
 		HandleServerError(writer, err)
 		return
 	}
+
 	gameList := payload.Games
 	writer.Header().Set(contentTypeKey, contentTypeJsonValue)
 	err = json.NewEncoder(writer).Encode(gameList)
@@ -158,12 +166,62 @@ func (m *TictactoeApiHandler) getAllGamesList(writer http.ResponseWriter, reques
 		HandleServerError(writer, err)
 		return
 	}
+
 	gameList := payload.Games
 	writer.Header().Set(contentTypeKey, contentTypeJsonValue)
 	err = json.NewEncoder(writer).Encode(gameList)
 	if err != nil {
 		HandleServerError(writer, err)
 	}
+}
+
+func (m *TictactoeApiHandler) joinGame(writer http.ResponseWriter, request *http.Request) {
+	networkName:= getNetworkNameFromReqHeader(request)
+	if networkName=="" {
+		HandleServerError(writer, errors.New("empty network name"))
+		return
+	}
+
+	orgName:= getOrgNameFromReqHeader(request)
+	if orgName=="" {
+		HandleServerError(writer, errors.New("org name not found in header"))
+		return
+	}
+
+	vars:= mux.Vars(request)
+	gameIdStr:= vars["gameid"]
+	if gameIdStr=="" {
+		HandleServerError(writer, errors.New("not a valid game id"))
+		return
+	}
+
+	network,err:= m.networkHandlers.GetNetwork(networkName)
+	if err != nil {
+		HandleServerError(writer, err)
+		return
+	}
+
+	payload,err:= m.getTicTacToeGameResponseFromChaincode(network, orgName, "joingame", gameIdStr, orgName)
+	if err != nil {
+		HandleServerError(writer, err)
+		return
+	}
+	gameList:= payload.Games
+
+	m.broadcastMessage("gameupdated", gameList)
+
+	writer.Header().Set(contentTypeKey, contentTypeJsonValue)
+	err = json.NewEncoder(writer).Encode(gameList)
+	if err != nil {
+		HandleServerError(writer, err)
+	}
+}
+
+func (m *TictactoeApiHandler) getGame(writer http.ResponseWriter, request *http.Request) {
+
+}
+
+func (m *TictactoeApiHandler) getGameFromChannel(networkName, orgName string, gameId int) {
 
 }
 
@@ -215,6 +273,12 @@ func (m *TictactoeApiHandler) getRoutes() []Route {
 			Name:        "AddGame",
 			Pattern:     "/addgame",
 			HandlerFunc: m.addGame,
+		},
+		{
+			Method:      http.MethodPost,
+			Name:        "JoinGame",
+			Pattern:     "/joingame/{gameid}",
+			HandlerFunc: m.joinGame,
 		},
 	}
 }

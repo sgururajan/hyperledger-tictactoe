@@ -2,11 +2,13 @@ import {ChangeDetectorRef, Component, OnInit} from '@angular/core';
 import {Actions, ofActionDispatched, ofActionSuccessful, Select, Store} from "@ngxs/store";
 import {GameModel} from "../../models/game.model";
 import {Observable} from "rxjs/internal/Observable";
-import {GameStateModel, GetAllGameList} from "../../state/game.state";
+import {GameStateModel, GetAllGameList, AddNewGame, UpdateGameList, JoinGame} from "../../state/game.state";
 import {MatTableDataSource} from "@angular/material";
 import {NetworkState} from "../../state/network.state";
 import {GameViewModel} from "../../models/gameView.model";
 import {BehaviorSubject} from "rxjs/internal/BehaviorSubject";
+
+import * as _ from "lodash";
 
 
 @Component({
@@ -19,18 +21,33 @@ export class GameListComponent implements OnInit {
   gameDataSource:MatTableDataSource<GameViewModel>;
   columnsToDisplayFields = ["id", "status", "players", "nextPlayer", "lastTxId", "action"];
 
-  loadingDataSource$:BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false );
-  loading$:Observable<boolean>;
+  loading$:BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false );
 
   @Select(state=>state.gamestate.gameList) gameList$:Observable<GameStateModel>;
 
   constructor(private store: Store, private action$:Actions, private changeDetector: ChangeDetectorRef) {
-    this.loading$ = this.loadingDataSource$.asObservable();
-    this.action$.pipe(ofActionDispatched(GetAllGameList)).subscribe(()=> this.loadingDataSource$.next(true));
+    //this.loading$ = this.loadingDataSource$.asObservable();
+    this.action$.pipe(ofActionDispatched(GetAllGameList)).subscribe(()=> this.loading$.next(true));
     this.action$.pipe(ofActionSuccessful(GetAllGameList)).subscribe(()=> {
-      console.log("GetAllGameListActionCompleted");
-      this.loadingDataSource$.next(false)
-      console.log(this.loadingDataSource$.getValue());
+      this.loading$.next(false)
+      this.changeDetector.detectChanges();
+    });
+
+    this.action$.pipe(ofActionDispatched(UpdateGameList)).subscribe(()=> this.loading$.next(true));
+    this.action$.pipe(ofActionSuccessful(UpdateGameList)).subscribe(()=> {
+      this.loading$.next(false)
+      this.changeDetector.detectChanges();
+    });
+
+    this.action$.pipe(ofActionDispatched(AddNewGame)).subscribe(()=> this.loading$.next(true));
+    this.action$.pipe(ofActionSuccessful(AddNewGame)).subscribe(()=> {
+      this.loading$.next(false);
+      this.changeDetector.detectChanges();
+    });
+
+    this.action$.pipe(ofActionDispatched(JoinGame)).subscribe(()=> this.loading$.next(true));
+    this.action$.pipe(ofActionSuccessful(JoinGame)).subscribe(()=> {
+      this.loading$.next(false);
       this.changeDetector.detectChanges();
     });
   }
@@ -41,10 +58,17 @@ export class GameListComponent implements OnInit {
     this.store.dispatch(new GetAllGameList());
     this.gameDataSource = new MatTableDataSource<GameViewModel>();
     this.store.select(state => state.gamestate.gameList).subscribe((resp:GameModel[])=>{
-      console.log(resp);
-      this.gameDataSource.data = resp.map(x=> this.convertToGameViewModel(x));
-      console.log(this.gameDataSource);
+      //this.gameDataSource.data = resp.map(x=> this.convertToGameViewModel(x));
     });
+
+    this.store.select(state=>state.gamestate.gameListById).subscribe((resp:{[id:number]:GameModel})=> {
+      //this.gameDataSource.data = resp.map(x=> this.convertToGameViewModel(x[x]))
+      console.log(`Game list hash table: `, resp);
+      const data = _.map(resp, g=> this.convertToGameViewModel(g));
+      console.log(`data: `, data);
+      this.gameDataSource.data = _.map(resp, g=>this.convertToGameViewModel(g));
+    })
+
     //this.columnsToDisplay.map(x=>x.fieldId)
   }
 
@@ -58,7 +82,13 @@ export class GameListComponent implements OnInit {
       nextPlayer: game.players[game.playerToPlay].name,
       canJoin: this.getCanJoin(game),
       canPlay: this.getCanPlay(game),
+      awaitingOtherPlayer: this.getAwaitingOtherPlayer(game),
     }
+  }
+
+  getAwaitingOtherPlayer(game:GameModel):boolean {
+    const currentOrg = this.store.selectSnapshot(NetworkState.currentOrganization).name;
+    return !game.completed && game.players.every(x=>x.name!=="") && game.players[game.playerToPlay].name!= currentOrg;
   }
 
   getCanJoin(game:GameModel): boolean {
@@ -83,7 +113,7 @@ export class GameListComponent implements OnInit {
     return gameStatus;
   }
 
-  onRowClicked(row) {
+  onRowDblClicked(row) {
     console.log(row);
   }
 
@@ -91,11 +121,13 @@ export class GameListComponent implements OnInit {
     console.log(row);
   }
 
+  onJoinClicked(game:GameViewModel) {
+    // console.log(game);
+    // console.log(game.id);
+    this.store.dispatch(new JoinGame(game.id));
+  }
+
 }
 
-export interface TableField{
-  displayName:string
-  fieldId: string
-}
 
 

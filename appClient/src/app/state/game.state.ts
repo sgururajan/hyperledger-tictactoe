@@ -7,6 +7,7 @@ import * as _ from "lodash";
 
 export interface GameStateModel {
   gameList: GameModel[],
+  gameListById:{[gameId:number]:GameModel},
   currentGame: GameModel
 }
 
@@ -23,10 +24,21 @@ export class AddNewGame {
   static readonly type="[GameState] AddNewGame";
 }
 
+export class JoinGame {
+  static readonly type="[GameState] Joingame";
+  constructor(public gameId: number){}
+}
+
+export class UpdateGameList {
+  static readonly type="[GameState] UpdateGameList";
+  constructor (public  gameList:GameModel[]){}
+}
+
 @State({
   name: "gamestate",
   defaults: {
     gameList: [],
+    gameListById: {},
     currentGame: undefined
   }
 })
@@ -45,31 +57,40 @@ export class GameState {
 
   @Action(GetGameList)
   getGameList(context:StateContext<GameStateModel>, action: GetGameList) {
-    return this.gameService.getGameList(action.pageIndex, action.pageSize).pipe(tap(resp=>{
-      let state = context.getState();
-      return context.patchState({
-        gameList: _.orderBy(_.unionBy(state.gameList, resp, "id"), ["id"],["asc"])
-      });
+    return this.gameService.getGameList(action.pageIndex, action.pageSize).pipe(tap(resp=>{      
+      return context.dispatch(new UpdateGameList(resp))
     }));
   }
 
   @Action(GetAllGameList)
   getAllGameList(context: StateContext<GameStateModel>, action: GetAllGameList) {
     return this.gameService.getAllGameList().pipe(tap(resp=>{
-      let state = context.getState()
-      return context.patchState({
-        gameList: _.orderBy(_.unionBy(state.gameList, resp, "id"), ["id"], ["asc"])
-      });
+      return context.dispatch(new UpdateGameList(resp));
     }));
   }
 
   @Action(AddNewGame)
   addNewGame(context: StateContext<GameStateModel>, action:AddNewGame) {
     return this.gameService.addGame().pipe(tap(resp=>{
-      let state = context.getState();
-      return context.patchState({
-        gameList: _.orderBy(_.unionBy(state.gameList, resp, "id"), ["id"], ["asc"])
-      });
+      return context.dispatch(new UpdateGameList(resp));
     }));
+  }
+
+  @Action(UpdateGameList)
+  updateGameList(context: StateContext<GameStateModel>, action: UpdateGameList) {
+    let state = context.getState();    
+    const gamesById = _.keyBy(action.gameList, g=>g.id);
+
+    return context.patchState({
+      gameList: _.orderBy(_.unionBy(state.gameList, action.gameList, "id"), ["id"], "[asc]"),
+      gameListById: {...state.gameListById, ...gamesById},
+    });
+  }
+  
+  @Action(JoinGame)
+  joinGame(context:StateContext<GameStateModel>, action:JoinGame) {
+    return this.gameService.joinGame(action.gameId).pipe(tap(resp=>{
+      return context.dispatch(new UpdateGameList(resp));
+    }))
   }
 }

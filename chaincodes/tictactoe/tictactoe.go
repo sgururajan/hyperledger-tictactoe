@@ -89,6 +89,28 @@ func (m *TictactoeGame) Invoke(stub shim.ChaincodeStubInterface) peer.Response {
 	return shim.Success(nil)
 }
 
+func (m *TictactoeGame) getGame(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+	logger:= shim.NewLogger("getGame")
+	if len(args)<1 {
+		logger.Error("not enough arguments. expected at least 1")
+		return shim.Error("not enough arguments. expected at least 1")
+	}
+
+	gameStateKey:= fmt.Sprintf("%s%s", gameKeyPrefix, args[0])
+	gameBytes, err:= stub.GetState(gameStateKey)
+	if err != nil {
+		logger.Errorf("error while getting game. Err: %#v", err)
+		return shim.Error(errorMessage(err));
+	}
+
+	if gameBytes==nil || len(gameBytes)==0 {
+		logger.Infof("game with id \"%s\" does not exists", args[0])
+		return shim.Error(fmt.Sprintf("game with id \"%s\" does not exists", args[0]))
+	}
+
+	return shim.Success(nil)
+}
+
 func (m *TictactoeGame) newGame(stub shim.ChaincodeStubInterface, args []string) peer.Response {
 	logger:= shim.NewLogger("newGame")
 
@@ -197,18 +219,25 @@ func (m *TictactoeGame) getAllGames(stub shim.ChaincodeStubInterface) peer.Respo
 }
 
 func (m *TictactoeGame) joinGame(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+	logger:= shim.NewLogger("joinGame")
 	// args[0] = gameid (integer), args[1] = second player name (mostly org name)
 	if len(args) < 2 {
 		return shim.Error("not enough arguments. expected at least 2")
 	}
 
-	gameId, err := strconv.Atoi(args[0])
+	logger.Infof("arguments recieved: %s, %s", args[0], args[1])
+
+	if args[0]=="" {
+		return shim.Error("game id cannot be empty (args[0])");
+	}
+
+	_, err := strconv.Atoi(args[0])
 	if err != nil {
 		return shim.Error(errorWithMessage("gameid should be integer", err))
 	}
 
 	game := Game{}
-	gameBytes, err := stub.GetState(gameKeyPrefix + string(gameId))
+	gameBytes, err := stub.GetState(gameKeyPrefix + args[0])
 	if err != nil {
 		return shim.Error(errorMessage(err))
 	}
@@ -223,6 +252,10 @@ func (m *TictactoeGame) joinGame(stub shim.ChaincodeStubInterface, args []string
 		return shim.Error("joining player name cannot be empty.")
 	}
 
+	if game.Players[0].Name==otherPlayerName {
+		return shim.Error("this player already joined the game")
+	}
+
 	game.Players[1].Name = otherPlayerName
 	game.Players[1].Symbol = symbolX
 
@@ -231,12 +264,19 @@ func (m *TictactoeGame) joinGame(stub shim.ChaincodeStubInterface, args []string
 		return shim.Error(errorWithMessage("unable to marshal game data", err))
 	}
 
-	err = stub.PutState(gameKeyPrefix+string(gameId), gameBytes)
+	err = stub.PutState(gameKeyPrefix+args[0], gameBytes)
 	if err != nil {
 		return shim.Error(errorMessage(err))
 	}
 
-	return shim.Success(nil)
+	logger.Info("updated game with other player")
+
+	response, err:= generateResponse(stub.GetTxID(), []Game{game})
+	if err != nil {
+		return shim.Error(errorMessage(err))
+	}
+
+	return shim.Success(response)
 }
 
 func (m *TictactoeGame) createNewGame(initPlayer string, gameId int) Game {

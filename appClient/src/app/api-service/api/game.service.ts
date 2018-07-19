@@ -40,4 +40,12 @@ export class GameService {
     const url = `${this.basepath}/api/innetwork/addgame`;
     return this.httpClient.post<GameModel[]>(url, {}, {observe: observer, reportProgress:reportProgress});
   }
+
+  public joinGame(gameId?,observer?:"body", reportProgress?:true):Observable<GameModel[]>;
+  public joinGame(gameId?,observer?:"response", reportProgress?:true):Observable<HttpResponse<GameModel[]>>;
+  public joinGame(gameId?, observer?:"events", reportProgress?:true):Observable<HttpEvent<GameModel[]>>;
+  public joinGame(gameId:number, observer:any ="body", reportProgress:boolean=true):Observable<any> {
+    const url = `${this.basepath}/api/innetwork/joingame/${gameId}`;
+    return this.httpClient.post<GameModel[]>(url, {}, {observe: observer, reportProgress:reportProgress});
+  }
 }

@@ -6,7 +6,8 @@ import {
   MatSidenavModule,
   MatToolbarModule,
   MatTableModule,
-  MatProgressSpinnerModule
+  MatProgressSpinnerModule,
+  MatGridListModule
 } from "@angular/material";
 
 export const Material_UI_Modules = [
@@ -19,5 +20,6 @@ export const Material_UI_Modules = [
     MatSidenavModule,
     MatIconModule,
     MatListModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatGridListModule,
 ];

@@ -17,6 +17,8 @@ import {NetworkAuthInterceptorService} from "./shared/services/network-auth-inte
 import {GameState} from "./state/game.state";
 import { CommonModule } from '@angular/common';
 import { GameListActionsComponent } from './components/game-list-actions/game-list-actions.component';
+import { OverlayComponent } from './components/overlay/overlay.component';
+import { GameComponent } from './components/game/game.component';
 
 @NgModule({
   declarations: [
@@ -24,7 +26,9 @@ import { GameListActionsComponent } from './components/game-list-actions/game-li
     TopnavbarComponent,
     NetworkLoginComponent,
     GameListComponent,
-    GameListActionsComponent
+    GameListActionsComponent,
+    OverlayComponent,
+    GameComponent
   ],
   imports: [
     CoreModule,

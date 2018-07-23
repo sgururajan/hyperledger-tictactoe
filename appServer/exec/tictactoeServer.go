@@ -20,6 +20,7 @@ import (
 	"github.com/sgururajan/hyperledger-tictactoe/utils"
 	"github.com/gorilla/handlers"
 	"github.com/sgururajan/hyperledger-tictactoe/fabnetwork"
+	"github.com/sgururajan/hyperledger-tictactoe/appServer/websocketHandler"
 )
 
 var networksDbFile = "networks.json"
@@ -62,17 +63,25 @@ func main() {
 	ensureTictactoeChannelAndChainCode(t3Network)
 
 	//enable cors
-	allowedHandlers:= handlers.AllowedHeaders([]string{"X-Requested-With"})
 	allowedOrigins:= handlers.AllowedOrigins([]string{"*"})
+	allowedHandlers:= handlers.AllowedHeaders([]string{"content-type", "X-Requested-With", "X-hlt3-networkName", "X-hlt3-orgName"})
 	allowedMethods:= handlers.AllowedMethods([]string{"GET", "POST", "OPTIONS", "PUT", "DELETE", "HEAD"})
 
 	//testNetwork(networkHandler)
 	router:= mux.NewRouter()
+
+	wsHandler:= websocketHandler.NewWebSocketHanler()
+	wsHandler.Initialize()
+
+	router.HandleFunc("/ws", wsHandler.SocketConnectionHandlerFunc)
+
+	t3ApiHandler:= apiHandlers.NewTictactoeApiHandler(repo, networkHandler, func(msgType string, v interface{}) {
+		wsHandler.BroadcastMessage(msgType, v)
+	})
+	t3ApiHandler.RegisterRoutes(router.PathPrefix("/api/innetwork").Subrouter())
+
 	apiHandler:= apiHandlers.NewNetworkAPIHandler(repo, networkHandler)
 	apiHandler.RegisterRoutes(router.PathPrefix("/api").Subrouter())
-
-	t3ApiHandler:= apiHandlers.NewTictactoeApiHandler(repo, networkHandler)
-	t3ApiHandler.RegisterRoutes(router.PathPrefix("/api/innetwork").Subrouter())
 
 	router.Use(loggingMiddleWare)
 
@@ -178,7 +187,7 @@ func ensureTictactoeChannelAndChainCode(fabNetwork *fabnetwork.FabricNetwork) {
 	ccRequest := entities.InstallChainCodeRequest{
 		ChainCodeName:    "tictactoe",
 		ChainCodePath:    "github.com/sgururajan/hyperledger-tictactoe/chaincodes/tictactoe/",
-		ChainCodeVersion: "0.0.1",
+		ChainCodeVersion: "0.0.2",
 		ChannelName:      "tictactoechannel",
 	}
 

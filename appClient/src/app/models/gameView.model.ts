@@ -1,3 +1,5 @@
+import { Cell } from "./game.model";
+
 export interface GameViewModel {
   id: number
   status: string
@@ -7,4 +9,7 @@ export interface GameViewModel {
   canPlay:boolean
   awaitingOtherPlayer:boolean
   canJoin:boolean
+  cells: Cell[]
+  completed: boolean
+  winner: string
 }

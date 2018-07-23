@@ -2,7 +2,7 @@ package domainModel
 
 type Cell struct {
 	Row    int    `json:"row"`
-	Column int    `json:"col"`
+	Column int    `json:"column"`
 	Value  string `json:"value"`
 }
 

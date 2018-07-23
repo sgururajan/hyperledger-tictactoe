@@ -358,5 +358,6 @@ func (m *FabricNetwork) updateChannelConfigs() error {
 
 	m.sdkImpl.channels = chConfigs
 
+
 	return nil
 }

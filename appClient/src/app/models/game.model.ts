@@ -10,7 +10,7 @@ export interface GameModel {
 
 export interface Cell {
     row: number
-    col: number
+    column: number
     value: string
 }
 

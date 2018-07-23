@@ -10,6 +10,8 @@ import (
 	"github.com/sgururajan/hyperledger-tictactoe/fabnetwork"
 	"net/http"
 	"strconv"
+	"github.com/sgururajan/hyperledger-tictactoe/appServer/apiMessage"
+	"github.com/sgururajan/hyperledger-tictactoe/utils"
 )
 
 const (
@@ -143,6 +145,7 @@ func (m *TictactoeApiHandler) getGameList(writer http.ResponseWriter, request *h
 }
 
 func (m *TictactoeApiHandler) getAllGamesList(writer http.ResponseWriter, request *http.Request) {
+	logger:= utils.NewAppLogger("getAllGamesList", "")
 	networkName := getNetworkNameFromReqHeader(request)
 	if networkName == "" {
 		HandleServerError(writer, errors.New("empty network name"))
@@ -168,6 +171,7 @@ func (m *TictactoeApiHandler) getAllGamesList(writer http.ResponseWriter, reques
 	}
 
 	gameList := payload.Games
+	logger.Infof("%#v", gameList)
 	writer.Header().Set(contentTypeKey, contentTypeJsonValue)
 	err = json.NewEncoder(writer).Encode(gameList)
 	if err != nil {
@@ -207,6 +211,66 @@ func (m *TictactoeApiHandler) joinGame(writer http.ResponseWriter, request *http
 		return
 	}
 	gameList:= payload.Games
+
+	m.broadcastMessage("gameupdated", gameList)
+
+	writer.Header().Set(contentTypeKey, contentTypeJsonValue)
+	err = json.NewEncoder(writer).Encode(gameList)
+	if err != nil {
+		HandleServerError(writer, err)
+	}
+}
+
+func (m *TictactoeApiHandler) makeMove(writer http.ResponseWriter, request *http.Request) {
+	logger:= utils.NewAppLogger("makeMove","")
+
+	logger.Infof("request body: %#v", request.Body)
+
+	decoder:= json.NewDecoder(request.Body)
+	var moveRequest apiMessage.MakeMoveRequest
+	err:= decoder.Decode(&moveRequest)
+	if err != nil {
+		HandleServerError(writer, err)
+		return
+	}
+
+	logger.Infof("received move request: %#v", moveRequest)
+
+	networkName:= getNetworkNameFromReqHeader(request)
+	orgName:= getOrgNameFromReqHeader(request)
+
+	if networkName=="" {
+		HandleServerError(writer, errors.New("invalid network name"))
+		return
+	}
+
+	if orgName == "" {
+		HandleServerError(writer, errors.New("invalid org name"))
+		return
+	}
+
+	network, err:= m.networkHandlers.GetNetwork(networkName)
+	if err != nil {
+		HandleServerError(writer, err)
+		return
+	}
+
+	payload, err:= m.getTicTacToeGameResponseFromChaincode(network,
+		orgName,
+		"makemove",
+		strconv.Itoa(moveRequest.GameId),
+		orgName,
+		strconv.Itoa(moveRequest.Row),
+		strconv.Itoa(moveRequest.Column))
+
+	if err != nil {
+		HandleServerError(writer, err)
+		return
+	}
+
+	gameList:= payload.Games
+
+	logger.Infof("update game states: %v", gameList)
 
 	m.broadcastMessage("gameupdated", gameList)
 
@@ -279,6 +343,12 @@ func (m *TictactoeApiHandler) getRoutes() []Route {
 			Name:        "JoinGame",
 			Pattern:     "/joingame/{gameid}",
 			HandlerFunc: m.joinGame,
+		},
+		{
+			Method:      http.MethodPost,
+			Name:        "MakeMove",
+			Pattern:     "/makemove",
+			HandlerFunc: m.makeMove,
 		},
 	}
 }

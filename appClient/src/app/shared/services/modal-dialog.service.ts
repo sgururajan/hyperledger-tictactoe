@@ -12,12 +12,12 @@ export class ModalDialogService {
 
   }
 
-  async open(component) : Promise<DialogResult> {
+  async open(component, dialogData?:any) : Promise<DialogResult> {
     const dialogConfig = new MatDialogConfig();
     dialogConfig.disableClose=true;
     dialogConfig.autoFocus=true;
 
-    let dialogRef = this.dialog.open(component);
+    let dialogRef = this.dialog.open(component, {data: dialogData});
     let result = await dialogRef.afterClosed().toPromise();
 
     console.log("right after open");

@@ -8,57 +8,65 @@
     </div>
 
     <!-- <ng-template #gameList> -->
-        <div fxFlex="50%">
-            <mat-table class="game-list-table mat-elevation-z8" [dataSource]="gameDataSource">
-                <!-- <ng-container [matColumnDef]="column.fieldId" *ngFor="let column of columnsToDisplay">
+    <div fxFlex="50%">
+        <mat-table class="game-list-table mat-elevation-z8" [dataSource]="gameDataSource">
+            <!-- <ng-container [matColumnDef]="column.fieldId" *ngFor="let column of columnsToDisplay">
                             <mat-header-cell *matHeaderCellDef> {{column.displayName}} </mat-header-cell>
                             <mat-cell *matCellDef="let element"> {{element[column.fieldId]}}</mat-cell>
                         </ng-container> -->
 
-                <ng-container matColumnDef="id">
-                    <mat-header-cell *matHeaderCellDef> ID </mat-header-cell>
-                    <mat-cell *matCellDef="let row"> {{row.id}} </mat-cell>
-                </ng-container>
+            <ng-container matColumnDef="id">
+                <mat-header-cell *matHeaderCellDef> ID </mat-header-cell>
+                <mat-cell *matCellDef="let row"> {{row.id}} </mat-cell>
+            </ng-container>
 
-                <ng-container matColumnDef="status">
-                    <mat-header-cell *matHeaderCellDef> Status </mat-header-cell>
-                    <mat-cell *matCellDef="let row"> {{row.status}} </mat-cell>
-                </ng-container>
+            <ng-container matColumnDef="status">
+                <mat-header-cell *matHeaderCellDef> Status </mat-header-cell>
+                <mat-cell *matCellDef="let row"> {{row.status}} </mat-cell>
+            </ng-container>
 
-                <ng-container matColumnDef="players">
-                    <mat-header-cell *matHeaderCellDef> Players </mat-header-cell>
-                    <mat-cell *matCellDef="let row"> {{row.players}} </mat-cell>
-                </ng-container>
+            <ng-container matColumnDef="players">
+                <mat-header-cell *matHeaderCellDef> Players </mat-header-cell>
+                <mat-cell *matCellDef="let row"> {{row.players}} </mat-cell>
+            </ng-container>
 
-                <ng-container matColumnDef="nextPlayer">
-                    <mat-header-cell *matHeaderCellDef> Next </mat-header-cell>
-                    <mat-cell *matCellDef="let row"> {{row.nextPlayer}} </mat-cell>
-                </ng-container>
+            <ng-container matColumnDef="nextPlayer">
+                <mat-header-cell *matHeaderCellDef> Next </mat-header-cell>
+                <mat-cell *matCellDef="let row"> {{row.nextPlayer}} </mat-cell>
+            </ng-container>
 
-                <ng-container matColumnDef="lastTxId">
+            <ng-container matColumnDef="winner">
+                <mat-header-cell *matHeaderCellDef> Winner </mat-header-cell>
+                <mat-cell *matCellDef="let row"> 
+                    <span *ngIf="row.completed && row.winner!=''">{{row.winner}}</span>
+                    <span *ngIf="row.completed && row.winner==''">Draw</span>
+                </mat-cell>
+            </ng-container>
+
+            <!-- <ng-container matColumnDef="lastTxId">
                     <mat-header-cell *matHeaderCellDef> Last TxId </mat-header-cell>
                     <mat-cell *matCellDef="let row"> {{row.lastTxId}} </mat-cell>
-                </ng-container>
+                </ng-container> -->
 
-                <ng-container matColumnDef="action">
-                    <mat-header-cell *matHeaderCellDef>_</mat-header-cell>
-                    <mat-cell *matCellDef="let row">
-                        <button mat-raised-button *ngIf="row.canPlay" color="accent" (click)="onPlayClicked(row)">
-                            <mat-icon>play_arrow</mat-icon>
-                            Play
-                        </button>
-                        <button mat-raised-button *ngIf="row.canJoin" color="accent" (click)="onJoinClicked(row)">
-                            <mat-icon>settings_ethernet</mat-icon>
-                            Join
-                        </button>
-                        <mat-hint *ngIf="row.awaitingOtherPlayer">Awaiting</mat-hint>
-                    </mat-cell>
-                </ng-container>
+            <ng-container matColumnDef="action">
+                <mat-header-cell *matHeaderCellDef>_</mat-header-cell>
+                <mat-cell *matCellDef="let row">
+                    <button mat-raised-button *ngIf="row.canPlay" color="accent" (click)="onPlayClicked(row)">
+                        <mat-icon>play_arrow</mat-icon>
+                        Play
+                    </button>
+                    <button mat-raised-button *ngIf="row.canJoin" color="accent" (click)="onJoinClicked(row)">
+                        <mat-icon>settings_ethernet</mat-icon>
+                        Join
+                    </button>
+                    <mat-hint *ngIf="row.awaitingOtherPlayer">Awaiting</mat-hint>
+                </mat-cell>
+            </ng-container>
 
-                <mat-header-row *matHeaderRowDef="columnsToDisplayFields"></mat-header-row>
-                <mat-row class="game-element-row" *matRowDef="let row; columns: columnsToDisplayFields;" (dblclick)="onRowDblClicked(row)"></mat-row>
-            </mat-table>
-        </div>
+            <mat-header-row *matHeaderRowDef="columnsToDisplayFields"></mat-header-row>
+            <mat-row class="game-element-row" *matRowDef="let row; columns: columnsToDisplayFields;" (dblclick)="onRowDblClicked(row)"></mat-row>
+        </mat-table>
+    </div>
     <!-- </ng-template> -->
     <div fxFlex="10%">
         <app-game-list-actions></app-game-list-actions>

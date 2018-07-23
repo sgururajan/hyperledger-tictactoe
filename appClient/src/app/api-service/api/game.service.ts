@@ -48,4 +48,21 @@ export class GameService {
     const url = `${this.basepath}/api/innetwork/joingame/${gameId}`;
     return this.httpClient.post<GameModel[]>(url, {}, {observe: observer, reportProgress:reportProgress});
   }
+
+  public makeMove(gameId?,row?,col?,observer?:"body", reportProgress?:true):Observable<GameModel[]>;
+  public makeMove(gameId?,row?,col?,observer?:"response", reportProgress?:true):Observable<HttpResponse<GameModel[]>>;
+  public makeMove(gameId?,row?,col?,observer?:"events", reportProgress?:true):Observable<HttpEvent< GameModel[]>>;
+  public makeMove(gameId:number,row:number,col:number,observer:any="body", reportProgress:boolean=true):Observable<any>{
+    console.log(`received gameid: ${gameId}, row: ${row}, col: ${col}`);
+    const payload = {
+      gameId: gameId,
+      row: row,
+      column: col
+    };
+
+    console.log(`payload sending to server: `, payload);
+
+    const url = `${this.basepath}/api/innetwork/makemove`;
+    return this.httpClient.post<GameModel[]>(url, payload, {observe: observer, reportProgress: reportProgress});
+  }
 }

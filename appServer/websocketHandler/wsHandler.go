@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/sgururajan/hyperledger-tictactoe/utils"
+	"github.com/sgururajan/hyperledger-tictactoe/appServer/networkHandlers"
+	"github.com/sgururajan/hyperledger-tictactoe/fabnetwork"
+	"github.com/sgururajan/hyperledger-tictactoe/domainModel"
 )
 
 type SocketMessage struct {
@@ -14,13 +17,15 @@ type SocketMessage struct {
 
 type WebSocketHandler struct {
 	hub *Hub
+	networkHandlers *networkHandlers.NetworkHandler
 }
 
 var logger = utils.NewAppLogger("wsHandler","")
 
-func NewWebSocketHanler() *WebSocketHandler {
+func NewWebSocketHanler(handler *networkHandlers.NetworkHandler) *WebSocketHandler {
 	return &WebSocketHandler{
 		hub: newHub(),
+		networkHandlers:handler,
 	}
 }
 
@@ -28,9 +33,39 @@ func (m *WebSocketHandler) Initialize() {
 	go m.hub.run()
 }
 
+func (m *WebSocketHandler) SubscribeToBlockEvent(orgName string, receiver chan domainModel.BlockInfo) {
+	log:= utils.NewAppLogger("SubscriveToBlockEvent","")
+	network, err:= m.networkHandlers.GetNetwork("testnetwork")
+	if err != nil {
+		log.Errorf("error while getting network. err: %#v", err)
+		return
+	}
+
+	blockEventListener:= fabnetwork.BlockEventListener{
+		Receiver: receiver,
+	}
+
+	network.RegisterBlockEventListener("tictactoechannel", orgName, blockEventListener)
+}
+
+func (m *WebSocketHandler) UnsubscriveBlockEvent(orgName string, receiver chan domainModel.BlockInfo) {
+	log:= utils.NewAppLogger("SubscriveToBlockEvent","")
+	network, err:= m.networkHandlers.GetNetwork("testnetwork")
+	if err != nil {
+		log.Errorf("error while getting network. err: %#v", err)
+		return
+	}
+
+	blockEventListener:= fabnetwork.BlockEventListener{
+		Receiver: receiver,
+	}
+
+	network.UnRegisterBlockEventListener("tictactoechannel", orgName, blockEventListener)
+}
+
 func (m *WebSocketHandler) SocketConnectionHandlerFunc(w http.ResponseWriter, r *http.Request) {
 	logger.Infof("new socket connection received")
-	serveWebSocketConn(m.hub, w, r)
+	serveWebSocketConn(m.hub, m.SubscribeToBlockEvent, m.UnsubscriveBlockEvent, w, r)
 }
 
 func (m *WebSocketHandler) BroadcastMessage(msgType string, msg interface{}) {

@@ -7,7 +7,8 @@ import {
   MatToolbarModule,
   MatTableModule,
   MatProgressSpinnerModule,
-  MatGridListModule
+  MatGridListModule,
+  MatCardModule
 } from "@angular/material";
 
 export const Material_UI_Modules = [
@@ -22,5 +23,5 @@ export const Material_UI_Modules = [
     MatListModule,
     MatProgressSpinnerModule,
     MatGridListModule,
-    
+    MatCardModule,
 ];

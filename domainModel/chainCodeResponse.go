@@ -32,3 +32,17 @@ type ChainCodeResponse struct {
 	ProposalResponses  []ProposalResponse
 	TxProposalResponse TransactionProposal
 }
+
+type BlockTransaction struct {
+	Type           string `json:"type"`
+	TxId           string `json:"txId"`
+	ValidationCode string `json:"validationCode"`
+}
+
+type BlockInfo struct {
+	BlockNumber      uint64             `json:"blockNumber"`
+	ChannelId        string             `json:"channelId"`
+	Source           string             `json:"source"`
+	NoOfTransactions int                `json:"noOfTransactions"`
+	Transactions     []BlockTransaction `json:"transactions"`
+}

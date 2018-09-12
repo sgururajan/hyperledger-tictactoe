@@ -70,7 +70,7 @@ func main() {
 	//testNetwork(networkHandler)
 	router:= mux.NewRouter()
 
-	wsHandler:= websocketHandler.NewWebSocketHanler()
+	wsHandler:= websocketHandler.NewWebSocketHanler(networkHandler)
 	wsHandler.Initialize()
 
 	router.HandleFunc("/ws", wsHandler.SocketConnectionHandlerFunc)
@@ -193,6 +193,18 @@ func ensureTictactoeChannelAndChainCode(fabNetwork *fabnetwork.FabricNetwork) {
 
 	err = fabNetwork.InstallChainCode([]string{"org1", "org2"}, ccRequest)
 
+	if err != nil {
+		panic(err)
+	}
+
+	mtRequest := entities.InstallChainCodeRequest{
+		ChainCodeName:    "movieTicket",
+		ChainCodePath:    "github.com/sgururajan/hyperledger-tictactoe/chaincodes/movieTicket/",
+		ChainCodeVersion: "0.0.1",
+		ChannelName:      "tictactoechannel",
+	}
+
+	err = fabNetwork.InstallChainCode([]string{"org1", "org2"}, mtRequest)
 	if err != nil {
 		panic(err)
 	}

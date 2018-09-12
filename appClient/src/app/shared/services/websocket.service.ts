@@ -1,24 +1,25 @@
 import { Injectable } from '@angular/core';
-import {AppConfigService} from "../../core/config/app-config.service";
-import {WebSocketSubject} from "rxjs/webSocket";
-import {SocketMessage} from "../../models/socketMessage.model";
-import {Store} from "@ngxs/store";
-import {UpdateGameList} from "../../state/game.state";
+import { AppConfigService } from "../../core/config/app-config.service";
+import { WebSocketSubject } from "rxjs/webSocket";
+import { SocketMessage } from "../../models/socketMessage.model";
+import { Store } from "@ngxs/store";
+import { UpdateGameList } from "../../state/game.state";
+import { UpdateBlockList } from '../../state/block.state';
 
 @Injectable({
   providedIn: 'root'
 })
 export class WebsocketService {
 
-  private _host:string = "http://localhost:4300"
-  private _socket$:WebSocketSubject<SocketMessage>
+  private _host: string = "http://localhost:4300"
+  private socket: WebSocket;
 
-  constructor(private appConfig: AppConfigService, private store:Store) {
+  constructor(private appConfig: AppConfigService, private store: Store) {
 
   }
 
   init() {
-    this.appConfig.config$.subscribe(()=>{
+    this.appConfig.config$.subscribe(() => {
       this._host = this.appConfig.config.services["api"].replace("http://", "ws://")
       console.log(`socker server host set to: `, this._host);
     });
@@ -34,12 +35,38 @@ export class WebsocketService {
     // );
     // console.log(`socket obj created: `, this._socket$);
 
-    var socket = new WebSocket("ws://localhost:4300/ws");
-    socket.onopen = e=>console.log(`socket opened: `,  e);
-    socket.onerror= err=>console.error(`socket error: `, err);
-    socket.onmessage=e=> this.handleSocketMessage(e.data); //console.log(`socket message: `, );
+    this.socket = new WebSocket("ws://localhost:4300/ws");
+    this.socket.onopen = e => console.log(`socket opened: `, e);
+    this.socket.onerror = err => console.error(`socket error: `, err);
+    this.socket.onmessage = e => this.handleSocketMessage(e.data); //console.log(`socket message: `, );
+  }
 
+  subscribeToBlockEvents(orgName: string) {    
+    if (!orgName || orgName === '') {
+      return;
+    }
+    const data = {
+      type: "subscribeToBlockEvent",
+      payload: {
+        orgName: orgName
+      }
+    };
+    console.log(`sending data to socket: `, data);
+    this.socket.send(JSON.stringify(data));
+  }
 
+  unSubscribeToBlockEvents(orgName: string) {
+    if (!orgName || orgName === '') {
+      return;
+    }
+    
+    const data = {
+      type: "unsubscribeToBlockEvent",
+      payload: {
+        orgName: orgName
+      }
+    }
+    this.socket.send(JSON.stringify(data));
   }
 
   handleSocketMessage(data) {
@@ -55,6 +82,10 @@ export class WebsocketService {
         this.handleGameUpdate(msg);
         break;
       }
+      case "block": {
+        this.handleBlockUpdate(msg);
+        break;
+      }
       default: {
         console.log("no handler definded for socket msg type: " + msg.type);
         break;
@@ -66,9 +97,12 @@ export class WebsocketService {
   //   this.store.dispatch(new UpdateGameList(data.payload))
   // }
 
-  handleGameUpdate(data:SocketMessage) {
+  handleGameUpdate(data: SocketMessage) {
     this.store.dispatch(new UpdateGameList(data.payload));
   }
 
+  handleBlockUpdate(data:SocketMessage) {
+    this.store.dispatch(new UpdateBlockList(Array.of(data.payload)));
+  }
 
 }

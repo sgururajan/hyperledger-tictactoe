@@ -19,6 +19,9 @@ import { CommonModule } from '@angular/common';
 import { GameListActionsComponent } from './components/game-list-actions/game-list-actions.component';
 import { OverlayComponent } from './components/overlay/overlay.component';
 import { GameComponent } from './components/game/game.component';
+import { BlockComponent } from './components/block/block.component';
+import { BlockListComponent } from './components/block-list/block-list.component';
+import { BlockState } from './state/block.state';
 
 @NgModule({
   declarations: [
@@ -28,7 +31,9 @@ import { GameComponent } from './components/game/game.component';
     GameListComponent,
     GameListActionsComponent,
     OverlayComponent,
-    GameComponent
+    GameComponent,
+    BlockComponent,
+    BlockListComponent
   ],
   imports: [
     CoreModule,
@@ -39,7 +44,8 @@ import { GameComponent } from './components/game/game.component';
     ReactiveFormsModule,
     NgxsModule.forRoot([
       NetworkState,
-      GameState
+      GameState,
+      BlockState,
     ]),
     MaterialUiModule,
     ApiServiceModule,

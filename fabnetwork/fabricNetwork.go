@@ -19,7 +19,7 @@ type FabricNetwork struct {
 	sdkCAImpl    *fabSdkCAImpl
 	sdk          *fabsdk.FabricSDK
 	orgsByName   map[string]*entities.Organization
-	channelEventService map[channelEventRegistration][]chan uint64
+	channelBlockEventService map[string]BlockEventService
 }
 
 type entityProviders struct {
@@ -41,7 +41,7 @@ func NewFabricNetwork(clientConfig entities.ClientConfiguration, networkName str
 
 	network := &FabricNetwork{
 		Name: networkName,
-		channelEventService: make(map[channelEventRegistration][]chan uint64),
+		channelBlockEventService: make(map[string]BlockEventService),
 	}
 
 	err := initializeNetwork(network, clientConfig, opts)

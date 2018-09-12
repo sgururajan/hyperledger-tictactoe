@@ -1,0 +1,7 @@
+<div fxLayout="row" fxLayoutAlign="start center" fxLayoutGap="25px">
+ 
+  <div *ngFor="let block of blockList$ | async">
+    
+    <app-block [block]="block"></app-block>
+  </div>
+</div>

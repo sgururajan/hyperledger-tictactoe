@@ -358,6 +358,12 @@ func (m *FabricNetwork) updateChannelConfigs() error {
 
 	m.sdkImpl.channels = chConfigs
 
+	for k,_:= range m.sdkImpl.channels {
+		for _,o:= range orgs {
+			go m.registerEventServiceForChannel(k, o.Name)
+		}
+	}
+
 
 	return nil
 }

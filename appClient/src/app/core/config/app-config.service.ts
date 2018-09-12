@@ -1,10 +1,10 @@
 import { Injectable } from '@angular/core';
-import { Http } from "@angular/http";
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, config } from 'rxjs';
 import { AppConfig } from './app-config.model';
-import { BaseApiService } from '../../shared/services/base-api.service';
+import { BaseApiService } from  '../../shared/base-api.service';
+import { Http } from '@angular/http';
 import { map, catchError } from "rxjs/operators";
-import { AppConfigFactory } from './app-config.factory';
+import {HttpClient} from "@angular/common/http";
 
 const Default_Config = <AppConfig>{
   productName: '',
@@ -15,30 +15,28 @@ const Default_Config = <AppConfig>{
   providedIn: 'root'
 })
 export class AppConfigService extends BaseApiService {
-  config$:BehaviorSubject<AppConfig> = new BehaviorSubject<AppConfig>(undefined);
+  config$: BehaviorSubject<AppConfig> = new BehaviorSubject<AppConfig>(undefined);
 
-  constructor(private http: Http) { 
+  constructor(private httpClient:HttpClient) {
     super()
-  }
+   }
 
-  load():Promise<AppConfig> {
-    return new Promise(resolver=> {
-      this.http.get("assets/config.json")
-        .pipe(map(this.extract), catchError(this.handleError))
-        .subscribe((config:AppConfig)=> {
+   load():Promise<AppConfig> {
+     return new Promise(resolve => {
+      this.httpClient.get<AppConfig>("assets/config.json")
+        //.pipe(map(this.extract), catchError(this.handleError))
+        .subscribe((config:AppConfig)=>{
           this.config$.next(config);
-          resolver(config);
-
-          console.log("loaded configuration from global config file");
+          resolve(config);
+          console.log("loaded config from global config file");
         });
-    });
-  }
+     });
+   }
 
-  public get config() {
-    if (!this.config$.value) {
-      return Default_Config
-    }
-    return this.config$.value;
-  }
-
+   public get config() {
+     if (!this.config$.value) {
+       return Default_Config;
+     }
+     return this.config$.value;
+   }
 }

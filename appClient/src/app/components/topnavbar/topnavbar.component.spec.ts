@@ -1,25 +1,25 @@
-import { async, ComponentFixture, TestBed } from '@angular/core/testing';
 
+import { fakeAsync, ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatSidenavModule } from '@angular/material/sidenav';
 import { TopnavbarComponent } from './topnavbar.component';
 
 describe('TopnavbarComponent', () => {
   let component: TopnavbarComponent;
   let fixture: ComponentFixture<TopnavbarComponent>;
 
-  beforeEach(async(() => {
+  beforeEach(fakeAsync(() => {
     TestBed.configureTestingModule({
-      declarations: [ TopnavbarComponent ]
+      imports: [MatSidenavModule],
+      declarations: [TopnavbarComponent]
     })
     .compileComponents();
-  }));
 
-  beforeEach(() => {
     fixture = TestBed.createComponent(TopnavbarComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
-  });
+  }));
 
-  it('should create', () => {
+  it('should compile', () => {
     expect(component).toBeTruthy();
   });
 });

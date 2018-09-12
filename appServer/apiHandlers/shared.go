@@ -12,8 +12,8 @@ type Route struct {
 	HandlerFunc http.HandlerFunc
 }
 
-func HandleServerError(w http.ResponseWriter, additionalMsg string , err error) {
+func HandleServerError(w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusInternalServerError)
-	msg:= fmt.Sprintf("%s.\nErr: %v", additionalMsg, err)
+	msg:= fmt.Sprintf("msg: %s\nexception: %#v", err)
 	w.Write([]byte(msg))
 }

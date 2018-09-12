@@ -11,6 +11,7 @@ type NetworkRepository interface {
 	GetEndrosingPeersForOrgId(networkName, orgId string) ([]entities.Peer, error)
 	GetChainCodePeersForOrgId(networkName, orgId string) ([]entities.Peer, error)
 	GetPeers(networkName string)([]entities.Peer, error)
+	GetEndrosingPeersEndpoints(networkName string) ([]string, error)
 	GetOrderers(networkName string) ([]entities.Orderer, error)
 	GetOrderersForOrgId(networkName, orgId string) ([]entities.Orderer, error)
 	GetSecurityConfig(networkName string)(entities.SecurityConfiguration, error)

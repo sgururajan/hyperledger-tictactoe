@@ -1,6 +1,5 @@
 import { NgModule, APP_INITIALIZER } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ModuleWithProviders } from '@angular/compiler/src/core';
 import { AppConfigFactory } from './config/app-config.factory';
 import { AppConfigService } from './config/app-config.service';
 
@@ -9,15 +8,13 @@ import { AppConfigService } from './config/app-config.service';
     CommonModule
   ],
   declarations: [],
-  providers:[
+  providers: [
     {
       provide: APP_INITIALIZER,
       useFactory: AppConfigFactory,
-      deps:[AppConfigService],
-      multi: true
+      deps: [AppConfigService],
+      multi: true,
     }
   ]
 })
-export class CoreModule { 
-  
-}
+export class CoreModule { }

@@ -1,0 +1,34 @@
+<mat-toolbar class="game-toolbar">
+  <span *ngIf="game.completed && game.winner==''">Draw</span>
+  <span *ngIf="game.completed && game.winner!=''">{{game.winner}} Won</span>
+  <span *ngIf="!game.completed && disabled">Other player turn...</span>
+  <span *ngIf="!game.completed && !disabled">Your turn...</span>
+  <span class="toolbar-fill-space"></span>
+  <button mat-icon-button (click)="onCloseButtonClick()">
+    <mat-icon>close</mat-icon>
+  </button>
+</mat-toolbar>
+<div fxLayout="column" fxLayoutAlign="space-around center" fxLayoutGap="10px" class="game-container">
+  <div class="spinner-container" fxFlexFill fxFlex="50%" *ngIf="(loading$ | async)">
+    <app-overlay>
+      <mat-spinner></mat-spinner>
+    </app-overlay>
+  </div>
+  <div fxFlex="50%" fxFlexFill>
+    <mat-grid-list cols="3" class="matGridTile">
+      <mat-grid-tile *ngFor="let cell of game.cells" (click)="disabled?$event.stopPropagation(): onCellClick(cell)" [attr.disabled]="disabled?true:null">
+        {{cell.value}}
+      </mat-grid-tile>
+      <!-- <mat-grid-tile>1</mat-grid-tile>
+      <mat-grid-tile>2</mat-grid-tile>
+      <mat-grid-tile>3</mat-grid-tile>
+      <mat-grid-tile>4</mat-grid-tile>
+      <mat-grid-tile>5</mat-grid-tile>
+      <mat-grid-tile>6</mat-grid-tile>
+      <mat-grid-tile>7</mat-grid-tile>
+      <mat-grid-tile>8</mat-grid-tile>
+      <mat-grid-tile>9</mat-grid-tile> -->
+    </mat-grid-list>
+  </div>
+
+</div>

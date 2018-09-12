@@ -1,0 +1,16 @@
+<div fxLayout="column" fxLayoutAlign="space-around center" fxLayoutGap="15px">
+    <div fxFlex="25%">
+        <mat-form-field>
+            <mat-select placeholder="Choose Org" [formControl]="orgFormControl" name="item" name="orgSelect" required>
+                <mat-option *ngFor="let item of orgsList$ | async" [value]="item">
+                    {{item.name}}
+                </mat-option>
+            </mat-select>
+            <mat-error *ngIf="orgFormControl.hasError('required')">Please choose a organization</mat-error>
+        </mat-form-field>
+    </div>
+    <div fxFlex="50%">
+        <button mat-raised-button color="primary" (click)="onLogin()">Login</button>   
+    </div>
+
+</div>

@@ -1,13 +1,19 @@
-export interface NetworksInfo {
-    name: string
-    noOfOrganizations: number
-    noOfPeers: number
-    noOfChannels: number
-    noOfBlocks: number
+export interface Network extends NamedObject {
+    organizations: Organization[]
+    channels: Channel[]
 }
 
-export interface Network {
+export interface Organization extends NamedObject {
+    peers: Peer[]
+}
+
+export interface Peer extends NamedObject {
+    url: string
+}
+
+export interface Channel extends NamedObject {
+}
+
+export interface NamedObject {
     name: string
-    organizations: string[]
-    channels: string[]
 }

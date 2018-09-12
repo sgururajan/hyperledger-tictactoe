@@ -1,18 +1,20 @@
-import { Component, OnInit } from '@angular/core';
-import '@polymer/paper-toolbar/paper-toolbar'
-import '@polymer/paper-icon-button/paper-icon-button'
-
+import { Component } from '@angular/core';
+import { BreakpointObserver, Breakpoints, BreakpointState } from '@angular/cdk/layout';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 @Component({
   selector: 'app-topnavbar',
   templateUrl: './topnavbar.component.html',
-  styleUrls: ['./topnavbar.component.scss']
+  styleUrls: ['./topnavbar.component.css']
 })
-export class TopnavbarComponent implements OnInit {
+export class TopnavbarComponent {
 
-  constructor() { }
-
-  ngOnInit() {
+  isHandset$: Observable<boolean> = this.breakpointObserver.observe(Breakpoints.Handset)
+    .pipe(
+      map(result => result.matches)
+    );
+    
+  constructor(private breakpointObserver: BreakpointObserver) {}
+  
   }
-
-}
